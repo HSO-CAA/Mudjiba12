@@ -2,10 +2,13 @@
 محرك البوت: يراقب مجموعة حسابات تيك توك، وأول ما ينزل فيديو جديد
 يسوي لايك + حفظ + تعليق (تعليق مختلف لكل حساب).
 
+كل حساب تيك توك إله فولدر خاص بـ accounts/<الاسم> بيه الجلسة والإعدادات والسجل،
+فتكدر تشغل أكثر من حساب بنفس الوقت (كل واحد بنافذة).
+
 الواجهة موجودة بـ app.py. هذا الملف يشتغل بدونها أيضاً:
-    python bot.py login     # يفتح المتصفح حتى تسجل دخول، سكره لما تخلص
-    python bot.py run       # يبدأ المراقبة
-    python bot.py test URL  # يجرب لايك/حفظ/تعليق على فيديو معين
+    python bot.py <حساب> login     # يفتح نافذة تيك توك حتى تسجل دخول، سكرها لما تخلص
+    python bot.py <حساب> run       # يبدأ المراقبة
+    python bot.py <حساب> test URL  # يجرب لايك/حفظ/تعليق على فيديو معين
 """
 
 import json
@@ -26,9 +29,11 @@ from playwright.sync_api import sync_playwright
 
 # لما يشتغل كـ exe، الملفات تنحفظ جنب الـ exe
 BASE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
-CONFIG_FILE = BASE / "config.json"
-STATE_FILE = BASE / "state.json"
-PROFILE_DIR = BASE / "profile"
+ACCOUNTS_DIR = BASE / "accounts"
+
+# تتحدد لما نختار الحساب بـ use_account()
+ACCOUNT = None
+CONFIG_FILE = STATE_FILE = PROFILE_DIR = LOGIN_FILE = LOG_FILE = None
 
 VIDEO_ID_RE = re.compile(r"/video/(\d+)")
 
@@ -71,6 +76,111 @@ def find_browser():
 
 class Stopped(Exception):
     """ينرمي لما المستخدم يدوس إيقاف."""
+
+
+# ---------- حسابات تيك توك (كل حساب بفولدر) ----------
+
+BAD_NAME_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+
+
+def clean_account_name(name):
+    name = BAD_NAME_CHARS.sub("", name or "").strip().strip(".")
+    return name[:40]
+
+
+def _migrate_legacy():
+    """النسخ القديمة كانت تحفظ حساب واحد جنب الـ exe، ننقله لفولدر حساب."""
+    old = [BASE / n for n in ("config.json", "state.json", "profile", "login.json")]
+    if ACCOUNTS_DIR.exists() or not any(p.exists() for p in old):
+        return
+    dest = ACCOUNTS_DIR / "حسابي"
+    dest.mkdir(parents=True)
+    for p in old:
+        if p.exists():
+            shutil.move(str(p), str(dest / p.name))
+
+
+def list_accounts():
+    _migrate_legacy()
+    if not ACCOUNTS_DIR.exists():
+        return []
+    return sorted(p.name for p in ACCOUNTS_DIR.iterdir() if p.is_dir())
+
+
+def use_account(name, create=False):
+    global ACCOUNT, CONFIG_FILE, STATE_FILE, PROFILE_DIR, LOGIN_FILE, LOG_FILE
+    name = clean_account_name(name)
+    root = ACCOUNTS_DIR / name
+    if not name:
+        raise ValueError("اسم الحساب فارغ.")
+    if create:
+        root.mkdir(parents=True, exist_ok=True)
+    elif not root.is_dir():
+        raise ValueError(f"ماكو حساب باسم {name}.")
+    ACCOUNT = name
+    CONFIG_FILE = root / "config.json"
+    STATE_FILE = root / "state.json"
+    PROFILE_DIR = root / "profile"
+    LOGIN_FILE = root / "login.json"
+    LOG_FILE = root / "bot.log"
+    return name
+
+
+def is_logged_in(name=None):
+    """آخر نتيجة فحص لتسجيل الدخول (من غير ما نفتح متصفح)."""
+    f = (ACCOUNTS_DIR / name / "login.json") if name else LOGIN_FILE
+    try:
+        return bool(json.loads(f.read_text(encoding="utf-8")).get("logged_in"))
+    except Exception:
+        return False
+
+
+class AccountLock:
+    """قفل على فولدر الحساب حتى ما ينفتح نفس الحساب بنافذتين. ينفك وحده إذا البرنامج انطفى."""
+
+    def __init__(self, name):
+        self.path = ACCOUNTS_DIR / name / ".lock"
+        self.fh = None
+
+    def acquire(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fh = open(self.path, "a+")
+        try:
+            if os.name == "nt":
+                import msvcrt
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            fh.close()
+            return False
+        self.fh = fh
+        return True
+
+    def release(self):
+        if not self.fh:
+            return
+        try:
+            if os.name == "nt":
+                import msvcrt
+                self.fh.seek(0)
+                msvcrt.locking(self.fh.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self.fh.fileno(), fcntl.LOCK_UN)
+        finally:
+            self.fh.close()
+            self.fh = None
+
+    @classmethod
+    def is_locked(cls, name):
+        lock = cls(name)
+        if lock.acquire():
+            lock.release()
+            return False
+        return True
 
 
 # ---------- config / state ----------
@@ -253,11 +363,11 @@ class Bot:
         PROFILE_DIR.mkdir(exist_ok=True)
         proc = subprocess.Popen([
             browser, f"--user-data-dir={PROFILE_DIR}", "--no-first-run", "--no-default-browser-check",
-            "--disable-background-mode",
-            "--new-window", "https://www.tiktok.com/login",
+            "--disable-background-mode", "--window-size=480,820",
+            "--app=https://www.tiktok.com/login",
         ])
-        log.info("سجل دخول بالمتصفح اللي انفتح (تكدر تستخدم QR من التطبيق بموبايلك).")
-        log.info("لما تخلص وتشوف حسابك، سكّر نافذة المتصفح.")
+        log.info("سجل دخول بنافذة تيك توك اللي انفتحت (تكدر تستخدم QR من التطبيق بموبايلك).")
+        log.info("لما تخلص وتشوف حسابك، سكّر نافذة تيك توك.")
         while proc.poll() is None:
             if self.stop_event.wait(0.5):
                 proc.terminate()
@@ -280,7 +390,9 @@ class Bot:
                 cookies = ctx.cookies("https://www.tiktok.com")
             finally:
                 ctx.close()
-        if any(c["name"] == "sessionid" and c["value"] for c in cookies):
+        ok = any(c["name"] == "sessionid" and c["value"] for c in cookies)
+        _atomic_write(LOGIN_FILE, {"logged_in": ok, "checked": int(time.time())})
+        if ok:
             log.info("تم تسجيل الدخول وحفظ الجلسة ✓")
             return True
         log.warning("ما لكيت جلسة تسجيل دخول. دوس 🔑 تسجيل الدخول وسجل، وما تسكر المتصفح إلا بعد ما تشوف حسابك.")
@@ -383,20 +495,29 @@ class Bot:
 
 
 def setup_logging(*extra_handlers):
-    handlers = [logging.FileHandler(BASE / "bot.log", encoding="utf-8"), *extra_handlers]
+    """ينادى بعد use_account() حتى السجل ينحفظ بفولدر الحساب."""
+    handlers = [logging.FileHandler(LOG_FILE, encoding="utf-8"), *extra_handlers]
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s", datefmt="%H:%M:%S",
                         handlers=handlers, force=True)
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print(__doc__)
+        print("الحسابات الموجودة:", ", ".join(list_accounts()) or "ماكو")
+        sys.exit(0)
+    use_account(sys.argv[1], create=True)
+    _lock = AccountLock(ACCOUNT)  # لازم يبقى بمتغير حتى القفل يظل شغال
+    if not _lock.acquire():
+        sys.exit("هذا الحساب مفتوح بالبرنامج حالياً.")
     setup_logging(logging.StreamHandler())
     bot = Bot()
-    arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    arg = sys.argv[2]
     try:
         if arg == "login":
             bot.login()
-        elif arg == "test" and len(sys.argv) > 2:
-            bot.test(sys.argv[2])
+        elif arg == "test" and len(sys.argv) > 3:
+            bot.test(sys.argv[3])
         elif arg == "run":
             bot.run()
         else:

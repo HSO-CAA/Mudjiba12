@@ -6,8 +6,10 @@
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import webbrowser
@@ -18,7 +20,6 @@ import bot
 
 HERE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 UI_FILE = HERE / "ui.html"
-UI_PROFILE = bot.BASE / "ui-profile"
 
 log = logging.getLogger("bot")
 
@@ -49,7 +50,9 @@ class Controller:
     def __init__(self):
         self.logs = LogBuffer()
         self.logs.setFormatter(logging.Formatter("%(asctime)s  %(message)s", "%H:%M:%S"))
-        bot.setup_logging(self.logs)
+        self.account = None  # حساب تيك توك مال هاي النافذة
+        self.account_lock = None
+        self.select_lock = threading.Lock()
         self.worker = None
         self.stop_event = threading.Event()
         self.mode = "idle"
@@ -79,6 +82,43 @@ class Controller:
     def stop(self):
         self.stop_event.set()
 
+    def select(self, name, create):
+        """نربط هاي النافذة بحساب واحد. ما نسمح بنفس الحساب بنافذتين."""
+        with self.select_lock:
+            name = bot.clean_account_name(name)
+            if not name:
+                return "اكتب اسم للحساب."
+            if self.account:
+                return None if name == self.account else "هاي النافذة مربوطة بحساب ثاني. افتح نافذة جديدة."
+            exists = name in bot.list_accounts()
+            if create and exists:
+                return "في حساب بنفس الاسم."
+            if not create and not exists:
+                return "ماكو حساب بهذا الاسم."
+            lock = bot.AccountLock(name)
+            if not lock.acquire():
+                return "هذا الحساب مفتوح بنافذة ثانية."
+            bot.use_account(name, create=create)
+            bot.setup_logging(self.logs)
+            self.account, self.account_lock = name, lock
+            log.info("الحساب: %s", name)
+            return None
+
+    def release(self):
+        if self.account_lock:
+            self.account_lock.release()
+
+
+def open_new_window():
+    """يشغل نسخة ثانية من البرنامج (نافذة جديدة لحساب ثاني)."""
+    env = dict(os.environ)
+    if getattr(sys, "frozen", False):
+        env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"  # النسخة الجديدة ما تعتمد على ملفات النسخة الحالية
+        cmd = [sys.executable]
+    else:
+        cmd = [sys.executable, str(Path(__file__).resolve())]
+    subprocess.Popen(cmd, env=env, cwd=str(bot.BASE))
+
 
 ctl = Controller()
 shutdown = threading.Event()
@@ -105,6 +145,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/", "/index.html"):
             return self._send(200, UI_FILE.read_bytes(), "text/html; charset=utf-8")
+        if self.path == "/api/accounts":
+            return self._send(200, {
+                "current": ctl.account,
+                "accounts": [{"name": n, "open": n != ctl.account and bot.AccountLock.is_locked(n),
+                              "logged_in": bot.is_logged_in(n)} for n in bot.list_accounts()],
+            })
+        if not ctl.account:
+            return self._send(409, {"error": "اختار حساب أول."})
         if self.path == "/api/config":
             with config_lock:
                 return self._send(200, bot.load_config())
@@ -114,7 +162,8 @@ class Handler(BaseHTTPRequestHandler):
             except (IndexError, ValueError):
                 n = 0
             lines, total = ctl.logs.since(n)
-            return self._send(200, {"mode": ctl.mode if ctl.busy() else "idle", "log": lines, "total": total})
+            return self._send(200, {"mode": ctl.mode if ctl.busy() else "idle", "log": lines, "total": total,
+                                    "account": ctl.account, "logged_in": bot.is_logged_in()})
         self._send(404, {"error": "not found"})
 
     def do_POST(self):
@@ -122,6 +171,14 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("Origin") != f"http://127.0.0.1:{self.server.server_port}":
             return self._send(403, {"error": "forbidden"})
         body = self._body()
+        if self.path == "/api/select":
+            err = ctl.select(body.get("name", ""), bool(body.get("create")))
+            return self._send(200, {"ok": not err, "error": err, "account": ctl.account})
+        if self.path == "/api/new_window":
+            open_new_window()
+            return self._send(200, {"ok": True})
+        if not ctl.account:
+            return self._send(409, {"error": "اختار حساب أول."})
         if self.path == "/api/config":
             with config_lock:
                 cfg = bot.load_config()
@@ -155,10 +212,11 @@ def main():
     url = f"http://127.0.0.1:{server.server_port}/"
 
     browser = bot.find_browser()
+    # بروفايل مؤقت للواجهة: كل نافذة تصير عملية مستقلة، ولما تتسكر النافذة البرنامج يطفي
+    ui_profile = tempfile.mkdtemp(prefix="tiktokbot-ui-")
     if browser:
-        # بروفايل خاص للواجهة حتى تنفتح كنافذة مستقلة، ولما تتسكر النافذة البرنامج يطفي
         proc = subprocess.Popen([
-            browser, f"--app={url}", f"--user-data-dir={UI_PROFILE}",
+            browser, f"--app={url}", f"--user-data-dir={ui_profile}",
             "--window-size=1050,860", "--no-first-run", "--no-default-browser-check",
         ])
         while proc.poll() is None and not shutdown.is_set():
@@ -170,7 +228,10 @@ def main():
     ctl.stop()
     if ctl.worker:
         ctl.worker.join(timeout=10)
+    ctl.release()
     server.shutdown()
+    time.sleep(1)  # نخلي المتصفح يفك ملفات البروفايل المؤقت
+    shutil.rmtree(ui_profile, ignore_errors=True)
 
 
 if __name__ == "__main__":

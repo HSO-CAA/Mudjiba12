@@ -24,20 +24,44 @@ jobs:
         working-directory: tiktok_bot
         run: pyinstaller --onefile --windowed --name TikTokBot --add-data "ui.html;." app.py
 
-      - name: Smoke test (exe opens the interface)
+      - name: Smoke test (two windows, account lock)
         working-directory: tiktok_bot
         shell: pwsh
         run: |
+          function Get-UiUrls {
+            $cmd = (Get-CimInstance Win32_Process -Filter "name='msedge.exe'").CommandLine
+            @($cmd | Select-String -Pattern '--app=(http://127\.0\.0\.1:\d+/)' -AllMatches |
+              ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+          }
+          function Post($url, $path, $body) {
+            Invoke-RestMethod -Method Post -Uri ($url + $path) -ContentType 'application/json' `
+              -Headers @{ Origin = $url.TrimEnd('/') } -Body ($body | ConvertTo-Json)
+          }
+
           $p = Start-Process .\dist\TikTokBot.exe -PassThru
           Start-Sleep -Seconds 20
           if ($p.HasExited) { Write-Error "exe exited early with code $($p.ExitCode)"; exit 1 }
-          $cmd = (Get-CimInstance Win32_Process -Filter "name='msedge.exe'").CommandLine -join "`n"
-          if ($cmd -notmatch '--app=(http://127\.0\.0\.1:\d+/)') { Write-Error "Edge window was not opened"; exit 1 }
-          $page = Invoke-WebRequest -UseBasicParsing $Matches[1]
+          $urls = Get-UiUrls
+          if ($urls.Count -ne 1) { Write-Error "expected 1 UI window, got: $urls"; exit 1 }
+          $u1 = $urls[0]
+          $page = Invoke-WebRequest -UseBasicParsing $u1
           if ($page.Content -notmatch 'TikTok') { Write-Error "UI page not served"; exit 1 }
-          Write-Output "UI served at $($Matches[1])"
-          Stop-Process -Id $p.Id -Force
-          Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force
+
+          $r = Post $u1 'api/select' @{ name = 'w1'; create = $true }
+          if (-not $r.ok) { Write-Error "select failed: $($r.error)"; exit 1 }
+
+          Post $u1 'api/new_window' @{} | Out-Null
+          Start-Sleep -Seconds 20
+          $u2 = Get-UiUrls | Where-Object { $_ -ne $u1 } | Select-Object -First 1
+          if (-not $u2) { Write-Error "new window did not open"; exit 1 }
+
+          $r = Post $u2 'api/select' @{ name = 'w1'; create = $false }
+          if ($r.ok) { Write-Error "account lock did not block a second window"; exit 1 }
+          $r = Post $u2 'api/select' @{ name = 'w2'; create = $true }
+          if (-not $r.ok) { Write-Error "second account failed: $($r.error)"; exit 1 }
+          Write-Output "OK: windows $u1 and $u2, lock works"
+
+          Get-Process TikTokBot, msedge -ErrorAction SilentlyContinue | Stop-Process -Force
 
       - name: Package
         shell: pwsh
