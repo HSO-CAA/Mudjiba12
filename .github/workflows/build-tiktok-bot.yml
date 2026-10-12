@@ -1,0 +1,46 @@
+name: Build TikTok Bot (exe)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tiktok_bot/**"
+      - ".github/workflows/build-tiktok-bot.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r tiktok_bot/requirements.txt pyinstaller
+
+      - name: Build exe
+        working-directory: tiktok_bot
+        run: pyinstaller --onefile --console --name TikTokBot bot.py
+
+      - name: Smoke test (exe starts and imports Playwright)
+        working-directory: tiktok_bot
+        shell: pwsh
+        run: |
+          $out = "5" | .\dist\TikTokBot.exe 2>&1 | Out-String
+          Write-Output $out
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item tiktok_bot/dist/TikTokBot.exe out/
+          Copy-Item tiktok_bot/config.example.json out/config.json
+          Copy-Item tiktok_bot/README.md out/README.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TikTokBot-windows
+          path: out/
