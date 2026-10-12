@@ -10,8 +10,11 @@
 
 import json
 import logging
+import os
 import random
 import re
+import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -49,6 +52,21 @@ DEFAULT_CONFIG = {
 }
 
 log = logging.getLogger("bot")
+
+
+def find_browser():
+    for n in ("msedge", "chrome", "google-chrome", "chromium"):
+        p = shutil.which(n)
+        if p:
+            return p
+    for root in (os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA")):
+        if not root:
+            continue
+        for rel in (r"Microsoft\Edge\Application\msedge.exe", r"Google\Chrome\Application\chrome.exe"):
+            p = Path(root) / rel
+            if p.exists():
+                return str(p)
+    return None
 
 
 class Stopped(Exception):
@@ -224,24 +242,54 @@ class Bot:
     # ---------- commands ----------
 
     def login(self):
-        """يفتح صفحة الدخول ويستنى لحد ما تسكر المتصفح أو تدوس إيقاف."""
+        """
+        يفتح Edge عادي (بدون أي تحكم آلي) على نفس بروفايل البوت.
+        تيك توك يرفض تسجيل الدخول من المتصفح المتحكم بيه آلياً، فالدخول لازم يكون بمتصفح طبيعي،
+        والكوكيز تنحفظ بالبروفايل ويستخدمها البوت بعدين.
+        """
+        browser = find_browser()
+        if not browser:
+            raise RuntimeError("ما لكيت متصفح Edge أو Chrome بالجهاز.")
+        PROFILE_DIR.mkdir(exist_ok=True)
+        proc = subprocess.Popen([
+            browser, f"--user-data-dir={PROFILE_DIR}", "--no-first-run", "--no-default-browser-check",
+            "--disable-background-mode",
+            "--new-window", "https://www.tiktok.com/login",
+        ])
+        log.info("سجل دخول بالمتصفح اللي انفتح (تكدر تستخدم QR من التطبيق بموبايلك).")
+        log.info("لما تخلص وتشوف حسابك، سكّر نافذة المتصفح.")
+        while proc.poll() is None:
+            if self.stop_event.wait(0.5):
+                proc.terminate()
+                raise Stopped()
+        time.sleep(1.5)  # نخلي المتصفح يكمل حفظ الكوكيز
+        self.check_login()
+
+    def check_login(self):
+        """يتأكد من وجود جلسة تيك توك بالبروفايل."""
         with sync_playwright() as p:
-            ctx = self.open_context(p, headless=False)
-            page = ctx.pages[0] if ctx.pages else ctx.new_page()
-            page.goto("https://www.tiktok.com/login")
-            log.info("سجل دخول بالمتصفح، ولما تخلص سكر المتصفح.")
-            try:
-                while ctx.pages and not self.stop_event.is_set():
-                    time.sleep(0.5)
-            finally:
+            for attempt in range(5):
                 try:
-                    ctx.close()
-                except Exception:
-                    pass
-        log.info("تم حفظ الجلسة ✓")
+                    ctx = self.open_context(p, headless=True)
+                    break
+                except RuntimeError:
+                    if attempt == 4:
+                        raise
+                    self.sleep(2)
+            try:
+                cookies = ctx.cookies("https://www.tiktok.com")
+            finally:
+                ctx.close()
+        if any(c["name"] == "sessionid" and c["value"] for c in cookies):
+            log.info("تم تسجيل الدخول وحفظ الجلسة ✓")
+            return True
+        log.warning("ما لكيت جلسة تسجيل دخول. دوس 🔑 تسجيل الدخول وسجل، وما تسكر المتصفح إلا بعد ما تشوف حسابك.")
+        return False
 
     def test(self, url):
         cfg = load_config()
+        if not self.check_login():
+            return
         with sync_playwright() as p:
             ctx = self.open_context(p, headless=False)
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
@@ -269,6 +317,8 @@ class Bot:
         max_per_hour = cfg.get("max_actions_per_hour", 10)
         recent_actions = deque()
 
+        if not self.check_login():
+            return
         log.info("المراقبة بدأت على %d حساب: %s", len(users), ", ".join("@" + u for u in users))
 
         with sync_playwright() as p:

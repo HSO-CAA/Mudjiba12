@@ -6,7 +6,6 @@
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import threading
@@ -150,27 +149,12 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"error": "not found"})
 
 
-def find_browser():
-    for n in ("msedge", "chrome", "google-chrome", "chromium"):
-        p = shutil.which(n)
-        if p:
-            return p
-    for root in (os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA")):
-        if not root:
-            continue
-        for rel in (r"Microsoft\Edge\Application\msedge.exe", r"Google\Chrome\Application\chrome.exe"):
-            p = Path(root) / rel
-            if p.exists():
-                return str(p)
-    return None
-
-
 def main():
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{server.server_port}/"
 
-    browser = find_browser()
+    browser = bot.find_browser()
     if browser:
         # بروفايل خاص للواجهة حتى تنفتح كنافذة مستقلة، ولما تتسكر النافذة البرنامج يطفي
         proc = subprocess.Popen([
