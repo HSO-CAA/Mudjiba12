@@ -22,16 +22,22 @@ jobs:
 
       - name: Build exe
         working-directory: tiktok_bot
-        run: pyinstaller --onefile --windowed --name TikTokBot app.py
+        run: pyinstaller --onefile --windowed --name TikTokBot --add-data "ui.html;." app.py
 
-      - name: Smoke test (window opens and stays up)
+      - name: Smoke test (exe opens the interface)
         working-directory: tiktok_bot
         shell: pwsh
         run: |
           $p = Start-Process .\dist\TikTokBot.exe -PassThru
-          Start-Sleep -Seconds 15
+          Start-Sleep -Seconds 20
           if ($p.HasExited) { Write-Error "exe exited early with code $($p.ExitCode)"; exit 1 }
+          $cmd = (Get-CimInstance Win32_Process -Filter "name='msedge.exe'").CommandLine -join "`n"
+          if ($cmd -notmatch '--app=(http://127\.0\.0\.1:\d+/)') { Write-Error "Edge window was not opened"; exit 1 }
+          $page = Invoke-WebRequest -UseBasicParsing $Matches[1]
+          if ($page.Content -notmatch 'TikTok') { Write-Error "UI page not served"; exit 1 }
+          Write-Output "UI served at $($Matches[1])"
           Stop-Process -Id $p.Id -Force
+          Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force
 
       - name: Package
         shell: pwsh

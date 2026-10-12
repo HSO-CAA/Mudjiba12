@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TikTok Bot</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #181b22; --panel2: #1f232c; --line: #2a2f3a;
+    --text: #e8eaf0; --muted: #9aa1b2; --accent: #fe2c55; --accent2: #25f4ee;
+    --ok: #2ecc71; --warn: #f5a623;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", Arial, sans-serif; font-size: 15px;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { margin: 0; font-size: 19px; }
+  header h1 span { color: var(--accent); }
+  .status { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.busy { background: var(--warn); }
+  main { padding: 16px 20px; display: grid; gap: 14px; grid-template-columns: 260px 1fr; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .card h2 { margin: 0 0 10px; font-size: 15px; color: var(--muted); font-weight: 600; }
+  .full { grid-column: 1 / -1; }
+  #accounts { list-style: none; margin: 0 0 10px; padding: 0; max-height: 260px; overflow: auto; }
+  #accounts li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 4px;
+  }
+  #accounts li:hover { background: var(--panel2); }
+  #accounts li.sel { background: var(--panel2); outline: 1px solid var(--accent); }
+  #accounts li .n { direction: ltr; unicode-bidi: isolate; }
+  #accounts li .c { color: var(--muted); font-size: 12px; }
+  #accounts li .x { color: var(--muted); border: 0; background: none; cursor: pointer; font-size: 16px; padding: 0 4px; }
+  #accounts li .x:hover { color: var(--accent); }
+  .empty { color: var(--muted); font-size: 13px; padding: 6px 2px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input[type=text], input[type=number], textarea {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font: inherit;
+  }
+  input:focus, textarea:focus { outline: 1px solid var(--accent2); border-color: var(--accent2); }
+  input[type=number] { width: 70px; text-align: center; }
+  #newacc { flex: 1; min-width: 0; direction: ltr; text-align: right; }
+  textarea { width: 100%; resize: vertical; min-height: 120px; line-height: 1.7; }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  button.btn {
+    border: 0; border-radius: 9px; padding: 10px 16px; font: inherit; font-weight: 600;
+    cursor: pointer; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+  }
+  button.btn:hover:not(:disabled) { border-color: var(--muted); }
+  button.btn:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.small { padding: 8px 12px; }
+  .settings { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; }
+  .settings label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--accent); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .actions .spacer { flex: 1; }
+  #log {
+    background: #0a0b0e; border-radius: 8px; padding: 10px 12px; height: 220px; overflow: auto;
+    font-size: 13.5px; line-height: 1.8; white-space: pre-wrap; word-break: break-word;
+  }
+  #log div { direction: rtl; text-align: right; }
+  #log .warn { color: var(--warn); }
+  #log .new { color: var(--accent2); }
+  #toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: var(--panel2); border: 1px solid var(--line); padding: 10px 18px; border-radius: 10px;
+    opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+  dialog {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px; width: min(460px, 90vw);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog input { width: 100%; direction: ltr; margin: 10px 0 14px; }
+  @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>TikTok <span>Bot</span> — لايك + حفظ + تعليق</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">متوقف</span></div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>الحسابات اللي نراقبها</h2>
+    <ul id="accounts"></ul>
+    <div class="row">
+      <input type="text" id="newacc" placeholder="@username" autocomplete="off">
+      <button class="btn small" id="addBtn">إضافة</button>
+    </div>
+    <p class="hint">تكدر تضيف أكثر من حساب، افصل بينهم بمسافة.</p>
+  </section>
+
+  <section class="card">
+    <h2 id="commentsTitle">تعليقات الحساب</h2>
+    <textarea id="accComments" placeholder="كل سطر تعليق&#10;مثلاً: تحفة يا بطل 🔥"></textarea>
+    <p class="hint">كل سطر تعليق. البرنامج ما يكرر التعليق إلا بعد ما يستخدم كل التعليقات.</p>
+    <h2 style="margin-top:14px">تعليقات عامة <span style="font-weight:400">(للحسابات اللي ما إلها تعليقات)</span></h2>
+    <textarea id="defComments" style="min-height:90px"></textarea>
+  </section>
+
+  <section class="card full">
+    <h2>الإعدادات</h2>
+    <div class="settings">
+      <span>افحص كل <input type="number" id="lo" min="1" max="180"> إلى <input type="number" id="hi" min="1" max="180"> دقيقة</span>
+      <span>أقصى عدد فيديوهات بالساعة <input type="number" id="max" min="1" max="100"></span>
+      <label><input type="checkbox" id="like"> لايك ❤️</label>
+      <label><input type="checkbox" id="save"> حفظ 🔖</label>
+      <label><input type="checkbox" id="comment"> تعليق 💬</label>
+      <label><input type="checkbox" id="headless"> متصفح مخفي</label>
+    </div>
+  </section>
+
+  <section class="card full">
+    <div class="actions">
+      <button class="btn primary" id="runBtn">▶ تشغيل المراقبة</button>
+      <button class="btn" id="stopBtn" disabled>■ إيقاف</button>
+      <button class="btn" id="loginBtn">🔑 تسجيل الدخول</button>
+      <button class="btn" id="testBtn">🧪 تجربة على فيديو</button>
+      <span class="spacer"></span>
+      <button class="btn" id="saveBtn">💾 حفظ الإعدادات</button>
+    </div>
+  </section>
+
+  <section class="card full">
+    <h2>السجل</h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<dialog id="testDlg">
+  <form method="dialog">
+    <div>الصق رابط فيديو تيك توك:</div>
+    <input type="text" id="testUrl" placeholder="https://www.tiktok.com/@user/video/...">
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn primary" value="ok">جرّب</button>
+      <button class="btn" value="cancel">إلغاء</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let cfg = null, current = null, logTotal = 0, dirty = false;
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+const lines = el => el.value.split("\n").map(s => s.trim()).filter(Boolean);
+const clean = u => u.trim().replace(/^@+/, "").toLowerCase();
+
+function storeCurrent() {
+  if (current !== null && cfg.accounts[current]) cfg.accounts[current] = lines($("accComments"));
+}
+
+function renderAccounts() {
+  const ul = $("accounts"); ul.innerHTML = "";
+  const names = Object.keys(cfg.accounts);
+  if (!names.length) {
+    ul.innerHTML = '<li class="empty">ما ضفت أي حساب بعد</li>';
+    current = null;
+  }
+  if (current !== null && !(current in cfg.accounts)) current = names[0] ?? null;
+  if (current === null && names.length) current = names[0];
+  for (const u of names) {
+    const li = document.createElement("li");
+    if (u === current) li.className = "sel";
+    const n = cfg.accounts[u].length;
+    li.innerHTML = `<span><span class="n"></span> <span class="c">${n ? n + " تعليق" : "عامة"}</span></span>
+                    <button class="x" title="حذف">✕</button>`;
+    li.querySelector(".n").textContent = "@" + u;
+    li.onclick = () => { storeCurrent(); current = u; renderAccounts(); };
+    li.querySelector(".x").onclick = e => {
+      e.stopPropagation();
+      if (confirm(`تحذف @${u}؟`)) { delete cfg.accounts[u]; if (current === u) current = null; dirty = true; renderAccounts(); }
+    };
+    ul.appendChild(li);
+  }
+  $("commentsTitle").textContent = current ? `تعليقات @${current}` : "تعليقات الحساب";
+  $("accComments").disabled = !current;
+  $("accComments").value = current ? cfg.accounts[current].join("\n") : "";
+}
+
+function addAccounts() {
+  storeCurrent();
+  let last = null;
+  for (const raw of $("newacc").value.split(/[\s,]+/)) {
+    const u = clean(raw);
+    if (u && !(u in cfg.accounts)) { cfg.accounts[u] = []; last = u; }
+  }
+  $("newacc").value = "";
+  if (last) { current = last; dirty = true; renderAccounts(); $("accComments").focus(); }
+}
+
+function fillSettings() {
+  const [lo, hi] = cfg.check_interval_minutes;
+  $("lo").value = lo; $("hi").value = hi; $("max").value = cfg.max_actions_per_hour;
+  $("like").checked = cfg.do_like; $("save").checked = cfg.do_save;
+  $("comment").checked = cfg.do_comment; $("headless").checked = cfg.headless;
+  $("defComments").value = (cfg.default_comments || []).join("\n");
+}
+
+async function saveConfig(quiet) {
+  storeCurrent();
+  let lo = Math.max(1, +$("lo").value || 1), hi = Math.max(1, +$("hi").value || 1);
+  if (lo > hi) [lo, hi] = [hi, lo];
+  Object.assign(cfg, {
+    check_interval_minutes: [lo, hi],
+    max_actions_per_hour: Math.max(1, +$("max").value || 1),
+    do_like: $("like").checked, do_save: $("save").checked,
+    do_comment: $("comment").checked, headless: $("headless").checked,
+    default_comments: lines($("defComments")),
+  });
+  await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg) });
+  dirty = false;
+  if (!quiet) { renderAccounts(); toast("تم حفظ الإعدادات ✓"); }
+}
+
+async function action(name, extra = {}) {
+  await saveConfig(true);
+  const r = await (await fetch("/api/action", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: name, ...extra }),
+  })).json();
+  if (r.ok === false && r.error) toast(r.error);
+  poll();
+}
+
+const MODES = {
+  idle: ["متوقف", ""], run: ["يراقب...", "on"],
+  login: ["تسجيل الدخول...", "busy"], test: ["تجربة...", "busy"],
+};
+
+async function poll() {
+  try {
+    const s = await (await fetch("/api/status?since=" + logTotal)).json();
+    const [txt, cls] = MODES[s.mode] || MODES.idle;
+    $("statusText").textContent = txt; $("dot").className = "dot " + cls;
+    const busy = s.mode !== "idle";
+    for (const id of ["runBtn", "loginBtn", "testBtn"]) $(id).disabled = busy;
+    $("stopBtn").disabled = !busy;
+    if (s.log.length) {
+      const box = $("log"), atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
+      for (const l of s.log) {
+        const d = document.createElement("div");
+        // الأسماء والروابط الإنجليزية تنعزل حتى ما تخربط ترتيب السطر العربي
+        for (const part of l.split(/((?:https?:\/\/|@)[^\s,،]+(?:[,،] *@[^\s,،]+)*)/)) {
+          if (!part) continue;
+          if (/^(https?:\/\/|@)/.test(part)) {
+            const b = document.createElement("bdi"); b.dir = "ltr"; b.textContent = part; d.appendChild(b);
+          } else d.appendChild(document.createTextNode(part));
+        }
+        if (/ما لكيت|خطأ|فشل|الحد/.test(l)) d.className = "warn";
+        else if (l.includes("🆕")) d.className = "new";
+        box.appendChild(d);
+      }
+      if (atEnd) box.scrollTop = box.scrollHeight;
+    }
+    logTotal = s.total;
+  } catch (e) { /* السيرفر طافي */ }
+}
+
+$("addBtn").onclick = addAccounts;
+$("newacc").onkeydown = e => { if (e.key === "Enter") addAccounts(); };
+$("accComments").oninput = () => { dirty = true; };
+$("saveBtn").onclick = () => saveConfig(false);
+$("runBtn").onclick = () => action("run");
+$("stopBtn").onclick = () => action("stop");
+$("loginBtn").onclick = () => {
+  if (confirm("راح ينفتح المتصفح. سجل دخول لحسابك بتيك توك، ولما تخلص سكّر المتصفح.")) action("login");
+};
+$("testBtn").onclick = () => { $("testUrl").value = ""; $("testDlg").showModal(); };
+$("testDlg").onclose = () => {
+  if ($("testDlg").returnValue === "ok") action("test", { url: $("testUrl").value });
+};
+document.querySelectorAll(".settings input, #defComments").forEach(el => el.addEventListener("change", () => saveConfig(true)));
+$("accComments").addEventListener("blur", () => { if (dirty) saveConfig(true); });
+
+(async () => {
+  cfg = await (await fetch("/api/config")).json();
+  fillSettings(); renderAccounts(); poll();
+  setInterval(poll, 1000);
+})();
+</script>
+</body>
+</html>

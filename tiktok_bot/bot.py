@@ -66,7 +66,14 @@ def load_config():
 
 
 def save_config(cfg):
-    CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    _atomic_write(CONFIG_FILE, cfg)
+
+
+def _atomic_write(path, data):
+    """نكتب بملف مؤقت وبعدين نبدله، حتى الملف ما يخرب إذا انقطع البرنامج بالنص."""
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
 
 
 def clean_user(u):
@@ -80,7 +87,7 @@ def load_state():
 
 
 def save_state(state):
-    STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    _atomic_write(STATE_FILE, state)
 
 
 def pick_comment(cfg, state, user):

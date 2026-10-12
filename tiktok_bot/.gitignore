@@ -2,3 +2,6 @@ config.json
 state.json
 profile/
 *.log
+ui-profile/
+*.tmp
+__pycache__/
