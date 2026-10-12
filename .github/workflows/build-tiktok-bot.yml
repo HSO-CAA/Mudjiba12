@@ -22,22 +22,22 @@ jobs:
 
       - name: Build exe
         working-directory: tiktok_bot
-        run: pyinstaller --onefile --console --name TikTokBot bot.py
+        run: pyinstaller --onefile --windowed --name TikTokBot app.py
 
-      - name: Smoke test (exe starts and imports Playwright)
+      - name: Smoke test (window opens and stays up)
         working-directory: tiktok_bot
         shell: pwsh
         run: |
-          $out = "5" | .\dist\TikTokBot.exe 2>&1 | Out-String
-          Write-Output $out
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $p = Start-Process .\dist\TikTokBot.exe -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) { Write-Error "exe exited early with code $($p.ExitCode)"; exit 1 }
+          Stop-Process -Id $p.Id -Force
 
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item tiktok_bot/dist/TikTokBot.exe out/
-          Copy-Item tiktok_bot/config.example.json out/config.json
           Copy-Item tiktok_bot/README.md out/README.md
 
       - uses: actions/upload-artifact@v4
