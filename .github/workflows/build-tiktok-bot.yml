@@ -41,7 +41,7 @@ jobs:
           $p = Start-Process .\dist\TikTokBot.exe -PassThru
           Start-Sleep -Seconds 20
           if ($p.HasExited) { Write-Error "exe exited early with code $($p.ExitCode)"; exit 1 }
-          $urls = Get-UiUrls
+          $urls = @(Get-UiUrls)
           if ($urls.Count -ne 1) { Write-Error "expected 1 UI window, got: $urls"; exit 1 }
           $u1 = $urls[0]
           $page = Invoke-WebRequest -UseBasicParsing $u1
@@ -52,7 +52,7 @@ jobs:
 
           Post $u1 'api/new_window' @{} | Out-Null
           Start-Sleep -Seconds 20
-          $u2 = Get-UiUrls | Where-Object { $_ -ne $u1 } | Select-Object -First 1
+          $u2 = @(Get-UiUrls) | Where-Object { $_ -ne $u1 } | Select-Object -First 1
           if (-not $u2) { Write-Error "new window did not open"; exit 1 }
 
           $r = Post $u2 'api/select' @{ name = 'w1'; create = $false }
