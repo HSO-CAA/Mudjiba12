@@ -218,6 +218,7 @@ def main():
         proc = subprocess.Popen([
             browser, f"--app={url}", f"--user-data-dir={ui_profile}",
             "--window-size=1050,860", "--no-first-run", "--no-default-browser-check",
+            "--disable-features=Translate,TranslateUI",  # الواجهة عربية، لا يترجمها Edge للإنكليزي
         ])
         while proc.poll() is None and not shutdown.is_set():
             time.sleep(0.5)
