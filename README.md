@@ -1,19 +1,107 @@
-# RDP Windows 2019 Gratis 100%
+# S5Y — بورتفوليو ثلاثي الأبعاد + لوحة تحكم + باك اند
 
-RDP Windows Gratis 6 Jam ON
+موقع شخصي احترافي لـ **S5Y** ([@s5y](https://instagram.com/s5y)) — صانع محتوى وتصوير ومونتاج.
 
+- 🎬 **موقع 3D واقعي**: ستوديو سينمائي، وعدسة كاميرا واقعية، وشاشات تعرض فيديوهاتك الحقيقية وانعكاسها على أرضية لمّاعة.
+- 🗂️ **صفحة خاصة لكل مكان اشتغلت وياه**، وبيها كل فيديوهاته.
+- 🔒 **لوحة تحكم مخفية تماماً عن البورتفوليو**: مالها أي رابط بالموقع، وعلى عنوان سري إنت تختاره.
+- ⬆️ **رفع فيديوهات كبيرة** (لحد 2GB) على قطع، وإذا انقطع النت يكمل من نفس المكان. والسيرفر يجهّز الفيديو تلقائياً للويب: ضغط، ومعاينة قصيرة، وصورة غلاف.
+- 💳 **باقات اشتراك جاهزة**: تسويها من لوحة التحكم وتظهرها بالموقع بضغطة زر من تريد.
+- 📩 **رسائل وطلبات الزبائن** توصلك على لوحة التحكم، وتگدر تتابع حالة كل طلب.
+- 📊 **إحصائيات**: زيارات الموقع، ومشاهدات كل فيديو، وأكثر الأماكن مشاهدة.
 
-Buat RDP Windows gratis dari website Github:
+---
 
-+ Tekan Tombol Fork untuk membuat RDP.
-+ kunjungi https://dashboard.ngrok.com untuk mendapatkan NGROK_AUTH_TOKEN
-+ Di Dalam Repo ini Pergi ke Settings> Secrets> New repository secret
-+ isi Nama: Masukan NGROK_AUTH_TOKEN
-+ isi Value: Kunjungi https://dashboard.ngrok.com/auth/your-authtoken Copy Dan Paste di dalam value
-+ Tekan Add secret
-+ Pergi Ke Action> CI> Run workflow
-+ Refresh Web dan masuk ke CI> build
-+ Tekan Tombol panah menghadap ke bawah "RDP INFO LOGIN" Untuk Mendapatkan IP, User, Password.
+## هيكل المشروع
 
-JANGAN LUPA LIKE ANDA SUBSCRIBE CHANNEL SURYONO MUDJIBA
-https://www.youtube.com/channel/UC3k5Cndh4BRT1M-6uVGag3w
+```
+apps/
+  api/      الباك اند — Fastify + Prisma + PostgreSQL (رفع ومعالجة الفيديو، الحماية، تقديم الموقع)
+  web/      البورتفوليو — React + Three.js (React Three Fiber) + Tailwind
+  admin/    لوحة التحكم — React (تطبيق منفصل كلياً عن الموقع)
+packages/
+  shared/   أنواع TypeScript المشتركة (عقد الـ API)
+docs/
+  CONTRACT.md   توثيق كل الـ API
+  DESIGN.md     اتجاه التصميم
+deploy/      ملفات النشر (Caddy للـ HTTPS)
+```
+
+## التشغيل على جهازك (للتطوير)
+
+تحتاج: **Node.js 22** و**PostgreSQL 16** و**ffmpeg** (اختياري، بس ضروري حتى تتجهز الفيديوهات تلقائياً).
+
+```bash
+npm install
+cp apps/api/.env.example apps/api/.env      # عدّل DATABASE_URL وبيانات حساب المدير
+npm run db:migrate                           # ينشئ جداول قاعدة البيانات
+npm run db:seed -- --demo                    # (اختياري) محتوى تجريبي حتى تشوف الموقع شلون يطلع
+npm run dev
+```
+
+- الموقع: http://localhost:5173
+- لوحة التحكم: http://localhost:5174
+- الـ API: http://localhost:4000
+
+## النشر على سيرفر (الطريقة الموصى بيها)
+
+أي سيرفر VPS بيه Docker (مثل Hetzner أو DigitalOcean أو Contabo):
+
+```bash
+git clone -b claude/hopeful-galileo-vb3plm https://github.com/HSO-CAA/Mudjiba12.git s5y
+cd s5y
+cp .env.example .env        # عبّي الإعدادات: كلمة سر قاعدة البيانات، الدومين، عنوان لوحة التحكم، حسابك
+docker compose up -d --build
+```
+
+- الموقع يشتغل على `http://IP-السيرفر:4000`.
+- **HTTPS تلقائي على دومينك**: وجّه الدومين على السيرفر، وبعدين شغّل:
+  ```bash
+  docker compose --profile https up -d
+  ```
+- **لوحة التحكم** على العنوان السري اللي حددته بـ `ADMIN_PATH`، مثلاً `https://yourdomain.com/studio-k39x`.
+- الفيديوهات وقاعدة البيانات محفوظة بـ Docker volumes (`media` و`pgdata`)، وما تنمسح لمن تحدّث الموقع.
+
+### التحديث
+
+```bash
+git pull && docker compose up -d --build
+```
+
+### نسخة احتياطية
+
+```bash
+docker compose exec db pg_dump -U s5y s5y > backup.sql
+docker run --rm -v s5y_media:/data -v "$PWD":/backup alpine tar czf /backup/media.tgz -C /data .
+```
+
+### تخزين الفيديوهات على Cloudflare R2 أو S3 (اختياري)
+
+إذا عندك فيديوهات هواية، تگدر تحطها على R2 (أرخص وأسرع). خلّي `STORAGE_DRIVER=s3` وعبّي متغيرات `S3_*` بملف `.env`. وفعّل CORS على الـ bucket للدومين مالتك، حتى الفيديوهات تشتغل داخل مشهد الـ 3D.
+
+## استخدام لوحة التحكم
+
+1. **الأماكن** ← «مكان جديد»: الاسم، والتصنيف، والموقع، ولون المكان، وصورة الغلاف واللوگو.
+2. داخل صفحة المكان: اسحب الفيديوهات أو اختارها من الگاليري (تگدر ترفع من الموبايل). تشوف التقدم وتگدر توقف وتكمل الرفع، والسيرفر يجهز الفيديو تلقائياً.
+3. رتّب الأماكن والفيديوهات بالسحب. علّم فيديو كـ«مميز» حتى يطلع بشاشات الـ 3D وبالشوريل.
+4. **الإعدادات**: اسمك، والنبذة، والصورة، والأرقام، والواتساب، والسوشيال، واختيار فيديوهات الواجهة، وإعدادات SEO.
+5. **الباقات**: سوّي باقاتك وأسعارها، ولمن تكون جاهز فعّل «اعرض الباقات بالموقع».
+6. **الرسائل**: كل طلب يوصلك من الموقع، وتگدر تحدّث حالته وتراسل الزبون واتساب مباشرة.
+
+## الحماية
+
+- جلسات تسجيل دخول آمنة (كوكي httpOnly + SameSite=Strict)، وكلمات السر مشفّرة بـ scrypt.
+- قفل الحساب بعد محاولات دخول فاشلة، وتحديد عدد الطلبات (Rate limiting).
+- حماية CSRF، وCSP صارم، وHelmet.
+- لوحة التحكم مخفية: ما موجودة بـ robots.txt ولا بالـ sitemap ولا بكود الموقع، ومعلّمة `noindex`.
+- لإعادة تعيين كلمة السر من السيرفر:
+  ```bash
+  docker compose exec app npm run create-admin -- --email you@example.com --password "NewStrongPass"
+  ```
+
+## التقنيات
+
+React 19 · Three.js · React Three Fiber · Drei · Postprocessing · Motion · Lenis · Tailwind CSS 4 · Vite ·
+Fastify 5 · Prisma · PostgreSQL · ffmpeg · Docker · Caddy
+
+راجع [`docs/CONTRACT.md`](docs/CONTRACT.md) لتوثيق الـ API الكامل.
