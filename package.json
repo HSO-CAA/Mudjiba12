@@ -1,0 +1,10 @@
+{
+  "name": "mudjiba12",
+  "version": "1.0.0",
+  "private": true,
+  "description": "3D portfolio for instagram.com/s5y with hidden admin dashboard",
+  "type": "module",
+  "scripts": { "start": "node server/index.js", "test": "node --test server/app.test.js" },
+  "engines": { "node": ">=22.13" },
+  "dependencies": { "express": "^4.21.2", "multer": "^1.4.5-lts.1", "three": "^0.170.0" }
+}

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>لوحة التحكم</title>
+<style>
+  :root{--bg:#0d0d10;--panel:#17171c;--line:#2a2a32;--fg:#ecebe6;--mut:#8d8c95;--gold:#c8a45c;--red:#e5604d}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Segoe UI",Tahoma,sans-serif}
+  header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line)}
+  h1{font-size:17px;margin:0;color:var(--gold)}h2{font-size:16px;margin:0 0 12px}
+  main{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:20px;max-width:1200px;margin:auto}
+  @media(max-width:800px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  input,textarea,button{font:inherit;color:inherit}
+  input,textarea{width:100%;background:#0f0f13;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:10px}
+  button{background:var(--gold);color:#1a1405;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
+  button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}button.danger{background:transparent;color:var(--red);border:1px solid var(--red)}
+  button:disabled{opacity:.5;cursor:wait}
+  .client{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+  .client:hover{background:#1f1f26}.client.on{border-color:var(--gold);background:#1f1f26}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-inline-end:8px}
+  small,.mut{color:var(--mut)}
+  .vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-top:14px}
+  .vid{background:#0f0f13;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .vid video{width:100%;aspect-ratio:9/16;max-height:300px;object-fit:cover;background:#000;display:block}
+  .vid div{padding:8px 10px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  #login{max-width:340px;margin:18vh auto}
+  progress{width:100%;margin:6px 0}
+  .err{color:var(--red);min-height:1.4em}
+</style>
+</head>
+<body>
+<div id="login" class="panel" hidden>
+  <h2>دخول الإدارة</h2>
+  <form id="lf"><input type="password" id="pw" placeholder="كلمة المرور" autocomplete="current-password" autofocus><button>دخول</button><p class="err" id="lerr"></p></form>
+</div>
+<div id="app" hidden>
+  <header><h1>لوحة تحكم المحفظة</h1><div class="row"><a href="/" target="_blank" class="mut">عرض الموقع</a><button class="ghost" id="out">خروج</button></div></header>
+  <main>
+    <aside class="panel">
+      <h2>جهات العمل</h2>
+      <div id="list"></div>
+      <hr style="border-color:var(--line);margin:14px 0">
+      <form id="nf">
+        <input id="nname" placeholder="اسم جهة العمل / العميل" required>
+        <textarea id="ndesc" rows="2" placeholder="وصف قصير"></textarea>
+        <div class="row" style="margin-bottom:10px"><label class="mut">اللون</label><input id="ncol" type="color" value="#c8a45c" style="width:54px;padding:2px;margin:0"></div>
+        <button>+ إضافة صفحة جديدة</button>
+      </form>
+    </aside>
+    <section class="panel" id="detail"><p class="mut">اختر جهة عمل من القائمة أو أضف واحدة جديدة.</p></section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
