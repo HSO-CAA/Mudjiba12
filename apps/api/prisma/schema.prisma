@@ -1,0 +1,181 @@
+// S5Y Portfolio — database schema (PostgreSQL)
+// Run `npm run db:migrate` after editing this file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  EDITOR
+}
+
+enum VideoStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum PlanPeriod {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  ONE_TIME
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  WON
+  ARCHIVED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role      @default(OWNER)
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+}
+
+/// Server-side sessions. The cookie carries a random token; only its SHA-256 hash is stored.
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// A place / client / brand the owner has worked with. Each one gets its own public page.
+model Place {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  category    String?
+  location    String?
+  summary     String?
+  description String?
+  coverKey    String?
+  logoKey     String?
+  accentColor String   @default("#e9b35f")
+  instagram   String?
+  website     String?
+  year        Int?
+  services    String[] @default([])
+  featured    Boolean  @default(false)
+  published   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  videos      Video[]
+
+  @@index([published, sortOrder])
+}
+
+model Video {
+  id              String      @id @default(cuid())
+  placeId         String
+  place           Place       @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  title           String?
+  description     String?
+  status          VideoStatus @default(UPLOADING)
+  processingError String?
+  originalName    String?
+  mimeType        String?
+  sizeBytes       BigInt      @default(0)
+  uploadedBytes   BigInt      @default(0)
+  sourceKey       String?
+  fileKey         String?
+  previewKey      String?
+  posterKey       String?
+  durationSec     Float?
+  width           Int?
+  height          Int?
+  featured        Boolean     @default(false)
+  published       Boolean     @default(true)
+  sortOrder       Int         @default(0)
+  plays           Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([placeId, sortOrder])
+  @@index([status])
+  @@index([featured])
+}
+
+/// Subscription packages (shown on the site only when enabled in settings).
+model Plan {
+  id          String     @id @default(cuid())
+  name        String
+  tagline     String?
+  price       Int?
+  currency    String     @default("IQD")
+  period      PlanPeriod @default(MONTHLY)
+  features    String[]   @default([])
+  highlighted Boolean    @default(false)
+  ctaLabel    String?
+  active      Boolean    @default(true)
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  inquiries   Inquiry[]
+
+  @@index([active, sortOrder])
+}
+
+/// Contact form submissions and plan requests.
+model Inquiry {
+  id        String        @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  message   String
+  status    InquiryStatus @default(NEW)
+  notes     String?
+  planId    String?
+  plan      Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
+  source    String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([status, createdAt])
+}
+
+/// Key/value JSON settings. The `site` key holds the full SiteSettings document.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Aggregated daily counters (no personal data is stored).
+/// metric: "pageview" (refId ""), "place_view" (refId = placeId), "play" (refId = videoId)
+model DailyStat {
+  date   DateTime @db.Date
+  metric String
+  refId  String   @default("")
+  count  Int      @default(0)
+
+  @@id([date, metric, refId])
+  @@index([metric, date])
+}
