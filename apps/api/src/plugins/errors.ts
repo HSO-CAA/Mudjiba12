@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import type { ApiErrorBody } from '@s5y/shared';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
-import { AppError } from '../lib/errors.js';
+import { AppError, storageAppError } from '../lib/errors.js';
 
 const STATUS_DEFAULTS: Record<number, { code: string; message: string }> = {
   400: { code: 'BAD_REQUEST', message: 'الطلب غير صالح' },
@@ -53,6 +53,8 @@ export function mapError(err: unknown): MappedError {
       },
     };
   }
+  const storageError = storageAppError(err);
+  if (storageError) return mapError(storageError);
   if (err instanceof AppError) {
     const error: ApiErrorBody['error'] = { code: err.code, message: err.message };
     if (err.details !== undefined) error.details = err.details;

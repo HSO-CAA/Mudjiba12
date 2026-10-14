@@ -4,12 +4,13 @@ import type { Prisma, Video } from '@prisma/client';
 import type { AdminVideo, AdminVideoWithPlace, VideoStatus, VideoUploadSession } from '@s5y/shared';
 import type { FastifyInstance } from 'fastify';
 import type { AppContext } from '../../context.js';
-import { AppError, badRequest, conflict, notFound, payloadTooLarge, unsupportedMediaType } from '../../lib/errors.js';
+import { AppError, STORAGE_MESSAGES, badRequest, conflict, notFound, payloadTooLarge, unsupportedMediaType } from '../../lib/errors.js';
 import { idParams, idSchema, imageKeySchema, nullableText, parse, z } from '../../lib/validation.js';
 import { looksLikeVideo } from '../../media/sniff.js';
 import { RATE_LIMITS } from '../../plugins/security.js';
 import { EXT_BY_VIDEO_MIME, VIDEO_EXTENSIONS, VIDEO_MIME_BY_EXT, type VideoExt, videoKeys } from '../../media/video.js';
 import { videoWithPlaceInclude } from '../../services/serializers.js';
+import { StorageObjectTooLargeError } from '../../storage/types.js';
 
 /** Max bytes per PATCH chunk (contract: 8 MiB). */
 export const CHUNK_SIZE = 8 * 1024 * 1024;
@@ -266,7 +267,18 @@ export async function videoRoutes(app: FastifyInstance, ctx: AppContext): Promis
 
       const container = resolveContainer(video.originalName ?? '', video.mimeType ?? '') ?? { ext: 'mp4', mime: 'video/mp4' };
       const sourceKey = videoKeys(id).source(container.ext);
-      await storage.putFile(sourceKey, tmp, { contentType: container.mime, move: true });
+      try {
+        await storage.putFile(sourceKey, tmp, { contentType: container.mime, move: true });
+      } catch (err) {
+        // Only possible without ffmpeg (sources are otherwise kept on this server): retrying can't help.
+        if (!(err instanceof StorageObjectTooLargeError)) throw err;
+        await fs.rm(tmp, { force: true });
+        await prisma.video.update({
+          where: { id },
+          data: { status: 'FAILED', processingError: STORAGE_MESSAGES.fileTooLarge, uploadedBytes: 0 },
+        });
+        throw payloadTooLarge(STORAGE_MESSAGES.fileTooLarge);
+      }
 
       const processing = ctx.tools.available;
       const updated = await prisma.video.update({

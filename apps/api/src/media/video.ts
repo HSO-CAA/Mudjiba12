@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 import { randomId } from '../lib/crypto.js';
 import { cleanString, truncate } from '../lib/sanitize.js';
-import type { StorageDriver } from '../storage/types.js';
+import { StorageAuthError, StorageObjectTooLargeError, StorageRequestError, type StorageDriver } from '../storage/types.js';
 import { AbortedError, FfmpegError, type MediaTools, type ProbeResult, probe, run, stderrSummary } from './ffmpeg.js';
 import type { Log } from './queue.js';
 
@@ -46,6 +46,21 @@ export interface VideoProcessorDeps {
 
 /** An expected processing failure with a user-facing Arabic reason. */
 class MediaJobError extends Error {}
+
+/** User-facing (Arabic) reasons for storage failures while saving processed files. */
+export const STORAGE_TOO_LARGE_MESSAGE =
+  'الفيديو بعد المعالجة أكبر من الحد المسموح بخطة Supabase (50MB بالخطة المجانية) — قصّر الفيديو أو رقّي الخطة';
+export const STORAGE_AUTH_MESSAGE =
+  'التخزين السحابي (Supabase) رفض الرفع: تأكد إن SUPABASE_SERVICE_ROLE_KEY هو مفتاح service_role السري لنفس المشروع، وإن المشروع مو موقوف';
+export const STORAGE_UNAVAILABLE_MESSAGE =
+  'تعذّر رفع الفيديو للتخزين السحابي — تأكد من الاتصال وإن مشروع Supabase شغّال، وبعدين اضغط «إعادة المعالجة»';
+
+function storageFailureReason(err: unknown): string | null {
+  if (err instanceof StorageObjectTooLargeError) return STORAGE_TOO_LARGE_MESSAGE;
+  if (err instanceof StorageAuthError) return STORAGE_AUTH_MESSAGE;
+  if (err instanceof StorageRequestError) return STORAGE_UNAVAILABLE_MESSAGE;
+  return null;
+}
 
 // Inputs are local files only: ffmpeg may never follow a URL/playlist reference found inside an upload.
 const FFMPEG_BASE = ['-hide_banner', '-nostdin', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file'];
@@ -262,9 +277,10 @@ export async function processVideo(deps: VideoProcessorDeps, videoId: string, si
     const reason =
       err instanceof MediaJobError
         ? err.message
-        : err instanceof FfmpegError
-          ? `تعذّرت معالجة الفيديو (${stderrSummary(err.stderr) || 'ffmpeg'})`
-          : 'تعذّرت معالجة الفيديو بسبب خطأ غير متوقع';
+        : (storageFailureReason(err) ??
+          (err instanceof FfmpegError
+            ? `تعذّرت معالجة الفيديو (${stderrSummary(err.stderr) || 'ffmpeg'})`
+            : 'تعذّرت معالجة الفيديو بسبب خطأ غير متوقع'));
     log.warn({ videoId, err }, 'video processing failed');
     await prisma.video
       .updateMany({ where: { id: videoId, status: 'PROCESSING' }, data: { status: 'FAILED', processingError: truncate(cleanString(reason), 500) } })

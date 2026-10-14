@@ -27,6 +27,7 @@ import {
 export class S3Storage implements StorageDriver {
   readonly kind = 's3' as const;
   readonly publicOrigin: string;
+  readonly localMediaDir = null;
   private readonly client: S3Client;
 
   constructor(private readonly cfg: S3Config) {

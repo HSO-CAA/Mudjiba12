@@ -45,8 +45,9 @@ export async function createContext(options: ContextOptions): Promise<AppContext
   const { config, log } = options;
   const ownsPrisma = !options.prisma;
   const prisma = options.prisma ?? new PrismaClient({ datasourceUrl: config.databaseUrl });
-  const storage = createStorage(config);
+  // ffmpeg first: whether video sources are staged on the local disk depends on it.
   const tools = options.tools ?? (await detectMediaTools(config.ffmpegPath, config.ffprobePath));
+  const storage = createStorage(config, { stageVideoSources: tools.available });
   const paths = {
     uploads: path.join(config.storage.dir, '.uploads'),
     work: path.join(config.storage.dir, '.work'),
@@ -84,6 +85,8 @@ export async function createContext(options: ContextOptions): Promise<AppContext
 
 /** First boot / every boot housekeeping: default settings, initial owner, resume interrupted jobs. */
 export async function bootstrapContext(ctx: AppContext): Promise<void> {
+  // Remote storage setup (e.g. create/publish the Supabase bucket). Logs problems instead of throwing.
+  await ctx.storage.init?.(ctx.log);
   await ctx.settings.ensure();
   const owner = await ctx.auth.ensureInitialOwner(ctx.config.admin);
   if (owner) ctx.log.info({ email: owner.email }, 'created initial owner account');

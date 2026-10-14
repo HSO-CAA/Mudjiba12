@@ -616,8 +616,10 @@ async function main(): Promise<void> {
     strict: true,
   });
   const config = loadConfig();
+  for (const warning of config.warnings) console.warn(`! ${warning}`);
   const ctx = await createContext({ config, log: consoleLog });
   try {
+    await ctx.storage.init?.(consoleLog);
     await ctx.settings.ensure();
     console.log('✔ Site settings ensured.');
     const owner = await ctx.auth.ensureInitialOwner(config.admin);

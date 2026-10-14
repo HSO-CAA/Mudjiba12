@@ -108,12 +108,22 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   let maintenance: NodeJS.Timeout | undefined;
   app.addHook('onReady', async () => {
+    for (const warning of config.warnings) app.log.warn(warning);
     if (options.bootstrap !== false) await bootstrapContext(ctx);
     if (!ctx.tools.available) app.log.warn('ffmpeg/ffprobe not found — videos are served as uploaded (no transcoding, previews or posters)');
     if (config.isProduction && config.adminPath === '/studio') {
       app.log.warn('ADMIN_PATH is still the default "/studio" — set a secret path in production');
     }
-    app.log.info({ web: frontends.web, admin: frontends.admin, storage: ctx.storage.kind, ffmpeg: ctx.tools.version }, 'app ready');
+    app.log.info(
+      {
+        web: frontends.web,
+        admin: frontends.admin,
+        storage: ctx.storage.kind,
+        ...(config.storage.supabase ? { bucket: config.storage.supabase.bucket, mediaOrigin: ctx.storage.publicOrigin } : {}),
+        ffmpeg: ctx.tools.version,
+      },
+      'app ready',
+    );
     const interval = options.maintenanceIntervalMs ?? 6 * 3600_000;
     if (interval > 0) {
       maintenance = setInterval(() => {

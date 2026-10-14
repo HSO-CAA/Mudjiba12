@@ -18,13 +18,15 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 /**
- * `/media/*` for the local storage driver: Range (206), ETag/Last-Modified, immutable caching.
+ * `/media/*` for files on this server's disk (the local driver, or video sources staged next to a remote driver):
+ * Range (206), ETag/Last-Modified, immutable caching.
  * Only `images/` and `videos/` are reachable; dot-folders (temp uploads, work dirs) never are.
  */
 export async function mediaRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  if (ctx.storage.kind !== 'local') return;
+  const root = ctx.storage.localMediaDir;
+  if (!root) return;
   await app.register(fastifyStatic, {
-    root: ctx.config.storage.dir,
+    root,
     prefix: '/media/',
     decorateReply: false,
     index: false,

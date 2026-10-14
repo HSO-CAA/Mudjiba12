@@ -1,7 +1,9 @@
+import path from 'node:path';
 import { buildApp } from './app.js';
-import { ConfigError, loadConfig, loadEnvFile } from './config.js';
+import { API_ROOT, ConfigError, loadConfig, loadEnvFile } from './config.js';
 
-loadEnvFile();
+// apps/api/.env.local → <repo>/.env.local → apps/api/.env (real environment variables always win).
+const envFilesLoaded = loadEnvFile();
 
 async function main(): Promise<void> {
   let config;
@@ -16,6 +18,7 @@ async function main(): Promise<void> {
   }
 
   const app = await buildApp({ config });
+  if (envFilesLoaded.length > 0) app.log.info({ envFiles: envFilesLoaded.map((f) => path.relative(API_ROOT, f)) }, 'loaded env files');
 
   let closing = false;
   const shutdown = (signal: NodeJS.Signals) => {

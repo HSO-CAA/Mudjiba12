@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { UploadedImage } from '@s5y/shared';
 import { randomId } from '../lib/crypto.js';
-import { AppError, unsupportedMediaType } from '../lib/errors.js';
+import { AppError, STORAGE_MESSAGES, storageAppError, unsupportedMediaType } from '../lib/errors.js';
 import type { StorageDriver } from '../storage/types.js';
 import { type MediaTools, probe, run } from './ffmpeg.js';
 import { IMAGE_EXT, IMAGE_MIME, type ImageType, imageSize, jpegOrientation, sniffImage } from './sniff.js';
@@ -27,6 +27,15 @@ export function imageKey(ext: string, date = new Date()): string {
   const yyyy = String(date.getUTCFullYear());
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
   return `images/${yyyy}/${mm}/${randomId(20)}.${ext}`;
+}
+
+/** Stores a file, turning remote-storage failures (too large for the bucket, bad key…) into Arabic API errors. */
+async function putImage(deps: ImageDeps, key: string, file: string, contentType: string): Promise<void> {
+  try {
+    await deps.storage.putFile(key, file, { contentType, move: true });
+  } catch (err) {
+    throw storageAppError(err, STORAGE_MESSAGES.imageTooLarge) ?? err;
+  }
 }
 
 interface ImageDeps {
@@ -77,7 +86,7 @@ export async function storeImage(deps: ImageDeps, buffer: Buffer): Promise<Uploa
       const converted = await convertToWebp(deps.tools, input, type, buffer, work).catch(() => null);
       if (converted) {
         const key = imageKey('webp');
-        await deps.storage.putFile(key, converted.file, { contentType: 'image/webp', move: true });
+        await putImage(deps, key, converted.file, 'image/webp');
         return { key, url: deps.storage.url(key), width: converted.width, height: converted.height };
       }
     }
@@ -89,7 +98,7 @@ export async function storeImage(deps: ImageDeps, buffer: Buffer): Promise<Uploa
       size = info?.video ? { width: info.video.width, height: info.video.height } : null;
     }
     const key = imageKey(IMAGE_EXT[type]);
-    await deps.storage.putFile(key, input, { contentType: IMAGE_MIME[type], move: true });
+    await putImage(deps, key, input, IMAGE_MIME[type]);
     return { key, url: deps.storage.url(key), width: size?.width ?? null, height: size?.height ?? null };
   } finally {
     await fs.rm(work, { recursive: true, force: true });

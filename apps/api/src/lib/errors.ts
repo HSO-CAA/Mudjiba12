@@ -1,4 +1,5 @@
 import type { ApiErrorCode } from '@s5y/shared';
+import { StorageAuthError, StorageObjectTooLargeError, StorageRequestError } from '../storage/types.js';
 
 /** A known, user-facing error. `message` is short Arabic text shown in the UI. */
 export class AppError extends Error {
@@ -36,3 +37,19 @@ export const payloadTooLarge = (message = 'حجم الطلب أكبر من ال�
 /** Builds a VALIDATION_ERROR shaped like zod issues so forms can map it to a field. */
 export const fieldError = (field: string, message: string): AppError =>
   new AppError(400, 'VALIDATION_ERROR', message, [{ path: field.split('.'), code: 'custom', message }]);
+
+/** Arabic messages for remote-storage failures (Supabase / S3) shown in the dashboard. */
+export const STORAGE_MESSAGES = {
+  imageTooLarge: 'الصورة أكبر من الحد المسموح بالتخزين السحابي (Supabase) — صغّر حجمها وارفعها مرة ثانية',
+  fileTooLarge: 'الملف أكبر من الحد المسموح بخطة Supabase (50MB لكل ملف بالخطة المجانية) — قصّر الفيديو أو رقّي الخطة',
+  auth: 'التخزين السحابي (Supabase) رفض الطلب — تأكد إن SUPABASE_SERVICE_ROLE_KEY هو مفتاح service_role السري لنفس المشروع',
+  unavailable: 'تعذّر الوصول للتخزين السحابي — تأكد من الاتصال وإن مشروع Supabase شغّال (مو موقوف) وحاول مرة ثانية',
+} as const;
+
+/** Maps a storage driver error to a user-facing AppError (or null when `err` is not a storage error). */
+export function storageAppError(err: unknown, tooLargeMessage: string = STORAGE_MESSAGES.fileTooLarge): AppError | null {
+  if (err instanceof StorageObjectTooLargeError) return payloadTooLarge(tooLargeMessage);
+  if (err instanceof StorageAuthError) return new AppError(502, 'STORAGE_ERROR', STORAGE_MESSAGES.auth);
+  if (err instanceof StorageRequestError) return new AppError(502, 'STORAGE_ERROR', STORAGE_MESSAGES.unavailable);
+  return null;
+}

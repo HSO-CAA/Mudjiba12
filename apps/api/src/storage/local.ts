@@ -9,9 +9,12 @@ const USAGE_CACHE_MS = 60_000;
 export class LocalStorage implements StorageDriver {
   readonly kind = 'local' as const;
   readonly publicOrigin = null;
+  readonly localMediaDir: string;
   private usageCache: { at: number; bytes: number } | null = null;
 
-  constructor(readonly root: string) {}
+  constructor(readonly root: string) {
+    this.localMediaDir = root;
+  }
 
   /** Absolute path of a key, guaranteed to stay inside the storage root. */
   resolve(key: string): string {
