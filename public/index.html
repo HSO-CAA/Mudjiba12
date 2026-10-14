@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S5Y — معرض الأعمال</title>
+<meta name="description" content="معرض أعمال حسن (s5y) — فيديوهات وإنتاج بصري.">
+<link rel="stylesheet" href="/style.css">
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+<div id="loader">S5Y</div>
+<header class="hud">
+  <a class="brand" href="/">S5Y<span>.</span></a>
+  <a class="ig" href="https://instagram.com/s5y" target="_blank" rel="noopener">@s5y</a>
+</header>
+<div class="hud center" id="caption">
+  <h1 id="cname"></h1><p id="cdesc"></p>
+  <button id="open" class="cta" hidden>شاهد الأعمال</button>
+</div>
+<button class="nav prev" id="next" aria-label="التالي">‹</button>
+<button class="nav next" id="prev" aria-label="السابق">›</button>
+<div class="hud dots" id="dots"></div>
+<section id="sheet" hidden>
+  <button id="close" aria-label="إغلاق">×</button>
+  <h2 id="sname"></h2><p id="sdesc"></p>
+  <div id="grid"></div>
+</section>
+<noscript><p style="padding:2rem">يلزم تفعيل جافاسكربت لعرض المعرض.</p></noscript>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>
