@@ -63,7 +63,7 @@ export function Plans({ plans, index, total }: { plans: PublicPlan[]; index: num
 
                   <div className="relative mt-8 border-y border-line py-7">
                     {price.onRequest ? (
-                      <p className="font-display text-4xl font-black sm:text-5xl">{price.amount}</p>
+                      <p className="whitespace-nowrap font-display text-4xl font-black leading-tight lg:text-[2.6rem]">{price.amount}</p>
                     ) : (
                       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                         <span className="font-display text-5xl font-black leading-none sm:text-6xl">{price.amount}</span>
@@ -85,7 +85,7 @@ export function Plans({ plans, index, total }: { plans: PublicPlan[]; index: num
                   </ul>
 
                   <Button variant={hl ? 'primary' : 'ghost'} size="lg" className="relative mt-9 w-full" onClick={() => choose(plan)}>
-                    {plan.ctaLabel || 'اختار الباقة'}
+                    {plan.ctaLabel || 'اطلب الباقة'}
                   </Button>
                 </article>
               </Reveal>

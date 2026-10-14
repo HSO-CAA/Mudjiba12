@@ -5,6 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import type { Config } from './config.js';
 import { type AppContext, bootstrapContext, createContext, runMaintenance } from './context.js';
 import { notFound } from './lib/errors.js';
+import { cleanStringsDeep } from './lib/sanitize.js';
 import type { MediaTools } from './media/ffmpeg.js';
 import { registerErrorHandling, sendError } from './plugins/errors.js';
 import { registerSecurity } from './plugins/security.js';
@@ -29,6 +30,21 @@ export interface BuildAppOptions {
   maintenanceIntervalMs?: number;
 }
 
+/**
+ * Proxies trusted for `TRUST_PROXY=true`: loopback, link-local, private networks (Docker/Compose, Nginx or
+ * Caddy on the same host, Render/Heroku 10.x) and carrier-grade NAT space (Railway & other PaaS edges).
+ * Fastify's own `true` would trust *every* hop, so whoever can reach the app port directly could pick any
+ * client IP via `X-Forwarded-For` and bypass the per-IP rate limits (login, inquiries, track).
+ */
+export const PRIVATE_PROXY_RANGES = ['loopback', 'linklocal', 'uniquelocal', '100.64.0.0/10'];
+
+export function fastifyTrustProxy(value: Config['trustProxy']): FastifyServerOptions['trustProxy'] {
+  if (value === true) return PRIVATE_PROXY_RANGES;
+  // A hop count is expressed as a function (Fastify's typings only accept boolean | string | string[] | fn).
+  if (typeof value === 'number') return ((hops: number) => (_address: string, hop: number) => hop < hops)(value);
+  return value;
+}
+
 function defaultLogger(config: Config): FastifyServerOptions['logger'] {
   const redact = ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'];
   if (config.env === 'development') {
@@ -46,11 +62,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   const app = Fastify({
     logger: options.logger ?? defaultLogger(config),
-    // A hop count is expressed as a function (Fastify's typings only accept boolean | string | string[] | fn).
-    trustProxy:
-      typeof config.trustProxy === 'number'
-        ? ((hops: number) => (_address: string, hop: number) => hop < hops)(config.trustProxy)
-        : config.trustProxy,
+    trustProxy: fastifyTrustProxy(config.trustProxy),
     bodyLimit: 1024 * 1024,
     routerOptions: { ignoreTrailingSlash: true, maxParamLength: 200 },
     forceCloseConnections: 'idle',
@@ -70,6 +82,14 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (request, body, done) => {
     if ((body as string).trim() === '') done(null, undefined);
     else jsonParser(request, body as string, done);
+  });
+
+  // NUL characters / lone surrogates in client strings would make PostgreSQL throw (→ 500): clean them
+  // before any route validates the input (bodies, query strings and params alike).
+  app.addHook('preValidation', async (request) => {
+    request.body = cleanStringsDeep(request.body);
+    request.query = cleanStringsDeep(request.query);
+    request.params = cleanStringsDeep(request.params);
   });
 
   await app.register(cookie);

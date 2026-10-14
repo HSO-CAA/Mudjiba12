@@ -116,9 +116,6 @@ const envSchema = z
       if (!env.S3_PUBLIC_URL)
         ctx.addIssue({ code: 'custom', path: ['S3_PUBLIC_URL'], message: 'S3_PUBLIC_URL is required when STORAGE_DRIVER=s3' });
     }
-    if (env.ADMIN_EMAIL && !env.ADMIN_PASSWORD) {
-      ctx.addIssue({ code: 'custom', path: ['ADMIN_PASSWORD'], message: 'ADMIN_PASSWORD is required when ADMIN_EMAIL is set' });
-    }
   });
 
 function parseTrustProxy(raw: string | undefined): TrustProxy {

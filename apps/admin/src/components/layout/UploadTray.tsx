@@ -1,17 +1,39 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
+import { useQueries } from '@tanstack/react-query';
+import type { AdminVideo, VideoStatus } from '@s5y/shared';
+import { api } from '../../lib/endpoints';
 import { ChevronDown, CloudUpload, CircleCheck, CircleAlert } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { formatEta, formatSpeed } from '../../lib/format';
-import { uploads } from '../../lib/uploads';
+import { formatEta, formatSpeed, formatVideoCount } from '../../lib/format';
+import { uploads, type UploadItem } from '../../lib/uploads';
 import { useUploads } from '../../hooks/useUploads';
 import { summarize, UploadRow } from '../../features/videos/UploadQueue';
+
+/** Server status of uploads that finished but are still being processed (the place page isn't there to poll). */
+function useLiveStatuses(items: UploadItem[]): Map<string, VideoStatus> {
+  const pending = items.filter((i) => i.phase === 'done' && i.videoId && i.result?.status === 'PROCESSING');
+  const results = useQueries({
+    queries: pending.map((item) => ({
+      queryKey: ['upload-status', item.videoId],
+      queryFn: () => api.videos.get(item.videoId as string),
+      refetchInterval: (query: { state: { data?: AdminVideo } }) =>
+        query.state.data?.status === 'READY' || query.state.data?.status === 'FAILED' ? false : 4000,
+    })),
+  });
+  const map = new Map<string, VideoStatus>();
+  results.forEach((r, i) => {
+    if (r.data) map.set(pending[i].id, r.data.status);
+  });
+  return map;
+}
 
 /** Floating queue for uploads that keep running while the owner browses other pages. */
 export function UploadTray() {
   const items = useUploads();
   const location = useLocation();
   const [open, setOpen] = useState(true);
+  const live = useLiveStatuses(items);
 
   const placeMatch = /^\/places\/([^/]+)/.exec(location.pathname);
   const onPlacePage = placeMatch ? items.every((item) => item.placeId === placeMatch[1]) : false;
@@ -41,7 +63,7 @@ export function UploadTray() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[0.8125rem] font-semibold">
-            {s.pending ? `جاري رفع ${s.pending} ${s.pending === 1 ? 'فيديو' : s.pending === 2 ? 'فيديوين' : 'فيديوهات'}` : 'اكتمل الرفع'}
+            {s.pending ? `جاري رفع ${formatVideoCount(s.pending)}` : 'اكتمل الرفع'}
           </span>
           <span className="block text-[0.6875rem] text-muted">
             {s.pending ? (
@@ -61,7 +83,7 @@ export function UploadTray() {
               </>
             ) : (
               <>
-                <span className="num">{s.done}</span> مكتمل
+                {`تم رفع ${formatVideoCount(s.done)}`}
               </>
             )}
           </span>
@@ -77,7 +99,7 @@ export function UploadTray() {
         <div className="border-t border-line">
           <ul className="max-h-72 divide-y divide-line overflow-y-auto px-4">
             {items.map((item) => (
-              <UploadRow key={item.id} item={item} compact />
+              <UploadRow key={item.id} item={item} compact liveStatus={live.get(item.id)} />
             ))}
           </ul>
           <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-2.5">

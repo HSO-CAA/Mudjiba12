@@ -232,7 +232,7 @@ function InquiryForm({ plans, source }: { plans: PublicPlan[]; source: string })
                     const price = formatPrice(p.price, p.currency);
                     return (
                       <option key={p.id} value={p.id}>
-                        {p.name} — {price.onRequest ? price.amount : `${price.amount} ${price.unit} · ${periodLabel(p.period)}`}
+                        {p.name} — {price.onRequest ? price.text : `${price.text} · ${periodLabel(p.period)}`}
                       </option>
                     );
                   })}

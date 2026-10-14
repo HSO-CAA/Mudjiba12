@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { AdminVideo } from '@s5y/shared';
 import { formatBytes, formatDuration } from '../../lib/format';
 import { isCrossOrigin } from '../../lib/site';
@@ -6,12 +7,23 @@ import { Dialog } from '../../components/ui/dialog';
 /** Quick preview of the full-quality file. */
 export function VideoPlayerDialog({ video, onClose }: { video: AdminVideo | null; onClose: () => void }) {
   const vertical = video?.width && video.height ? video.height >= video.width : true;
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [video?.id]);
   return (
     <Dialog open={video !== null} onClose={onClose} title={video?.title || video?.originalName || 'معاينة الفيديو'} size={vertical ? 'sm' : 'xl'}>
       {video?.url ? (
         <div className="flex flex-col gap-3">
-          <div className="overflow-hidden rounded-xl bg-black">
+          <div className="relative overflow-hidden rounded-xl bg-black">
+            {failed && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/80 p-6 text-center text-sm text-fg-2">
+                هذا المتصفح ما گدر يشغّل الفيديو.
+                <a href={video.url} target="_blank" rel="noopener" className="text-xs text-accent hover:underline">
+                  افتح الملف مباشرة
+                </a>
+              </div>
+            )}
             <video
+              onError={() => setFailed(true)}
               key={video.id}
               src={video.url}
               poster={video.posterUrl ?? undefined}

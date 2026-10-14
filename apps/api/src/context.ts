@@ -87,6 +87,12 @@ export async function bootstrapContext(ctx: AppContext): Promise<void> {
   await ctx.settings.ensure();
   const owner = await ctx.auth.ensureInitialOwner(ctx.config.admin);
   if (owner) ctx.log.info({ email: owner.email }, 'created initial owner account');
+  else if ((await ctx.prisma.user.count()) === 0) {
+    ctx.log.warn(
+      {},
+      'no admin account exists yet: set ADMIN_EMAIL and ADMIN_PASSWORD (min 10 chars) and restart, or run the create-admin script',
+    );
+  }
   await ctx.auth.purgeExpired();
 
   await cleanScratch(ctx);

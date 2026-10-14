@@ -68,9 +68,11 @@ thin **viewfinder HUD**. Physical, premium, cinematic — not a generic "dark Sa
 5. **About** — avatar inside viewfinder brackets, heading, body, location, years since,
    animated stat counters (`site.stats`).
 6. **Plans** (only when `site.sections.plans` is true and plans exist) — premium pricing cards,
-   highlighted plan glows in accent; price formatted per currency (IQD with Arabic thousands
-   separators, "حسب الطلب" when null); period labels (شهري / كل 3 أشهر / سنوي / مرة وحدة);
-   CTA opens the contact form pre-selected with that plan.
+   highlighted plan glows in accent; price formatted per currency ("750,000 د.ع", "$199",
+   "حسب الطلب" when null); period labels (شهري / كل 3 أشهر / سنوي / مرة وحدة);
+   CTA (default «اطلب الباقة») opens the contact form pre-selected with that plan.
+   **Numbers site-wide** (prices, counters, counts, years — public site and dashboard alike) use one
+   system: Western digits with Latin grouping. Never mix Arabic-Indic digits with a Latin comma.
 7. **Contact** — form (`InquiryInput` incl. hidden honeypot `website`), WhatsApp button
    (`https://wa.me/<number>`), Instagram link, success state. Then footer: handle, socials,
    © year. **No admin link anywhere.**

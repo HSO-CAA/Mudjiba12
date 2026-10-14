@@ -207,7 +207,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     throw ApiError.network();
   }
 
-  if (response.status === 204) return undefined as T;
+  if (response.status === 204) {
+    // Drain the (empty) body: Chromium reports an unread response as an aborted request in DevTools.
+    await response.text().catch(() => '');
+    return undefined as T;
+  }
   const data = await readBody(response);
   if (!response.ok) {
     const error = ApiError.fromResponse(response.status, data, response.headers);

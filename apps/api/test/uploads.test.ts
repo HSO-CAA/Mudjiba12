@@ -3,7 +3,8 @@ import path from 'node:path';
 import type { AdminPlace, AdminPlaceDetail, AdminVideo, AdminVideoWithPlace, ApiErrorBody, UploadedImage, VideoUploadSession } from '@s5y/shared';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { probe } from '../src/media/ffmpeg.js';
-import { NO_FFMPEG, type TestApp, admin, createPlace, createTestApp, login, multipartBody, uploadVideo } from './helpers.js';
+import { GLOBAL_RATE_LIMIT, RATE_LIMITS } from '../src/plugins/security.js';
+import { NO_FFMPEG, type TestApp, admin, createPlace, createTestApp, login, multipartBody, randomIp, uploadVideo } from './helpers.js';
 
 const fixtures = inject('fixturesDir');
 let t: TestApp;
@@ -125,7 +126,7 @@ describe('chunked resumable upload', () => {
     expect(done.statusCode).toBe(200);
     const processing = done.json() as AdminVideo;
     expect(processing.status).toBe('PROCESSING');
-    expect(processing.url).toBe(`/media/videos/${id}/source.mov`);
+    expect(processing.url?.startsWith(`/media/videos/${id}/source.mov?v=`)).toBe(true);
 
     // Completing twice is idempotent.
     const again = await t.app.inject({ method: 'POST', url: `/api/admin/videos/${id}/upload/complete`, headers: admin(cookie) });
@@ -136,9 +137,9 @@ describe('chunked resumable upload', () => {
     const ready = res.json() as AdminVideo;
     expect(ready.status).toBe('READY');
     expect(ready.processingError).toBeNull();
-    expect(ready.url).toBe(`/media/videos/${id}/video.mp4`);
-    expect(ready.previewUrl).toBe(`/media/videos/${id}/preview.mp4`);
-    expect(ready.posterUrl).toBe(`/media/videos/${id}/poster.jpg`);
+    expect(ready.url).toMatch(new RegExp(`^/media/videos/${id}/video\\.mp4\\?v=[0-9a-z]+$`));
+    expect(ready.previewUrl).toMatch(new RegExp(`^/media/videos/${id}/preview\\.mp4\\?v=[0-9a-z]+$`));
+    expect(ready.posterUrl).toMatch(new RegExp(`^/media/videos/${id}/poster\\.jpg\\?v=[0-9a-z]+$`));
     expect(ready.posterKey).toBe(`videos/${id}/poster.jpg`);
     expect(ready.width).toBe(180);
     expect(ready.height).toBe(320);
@@ -375,7 +376,7 @@ describe('without ffmpeg', () => {
       });
       const video = done.json() as AdminVideo;
       expect(video).toMatchObject({ status: 'READY', width: 180, height: 320, durationSec: 2, previewUrl: null });
-      expect(video.url).toBe(`/media/videos/${videoId}/source.mp4`);
+      expect(video.url?.startsWith(`/media/videos/${videoId}/source.mp4?v=`)).toBe(true);
       const overview = await bare.app.inject({ method: 'GET', url: '/api/admin/overview', headers: { cookie: c } });
       expect(overview.json()).toMatchObject({ mediaProcessing: false });
       const reprocess = await bare.app.inject({ method: 'POST', url: `/api/admin/videos/${videoId}/reprocess`, headers: admin(c) });
@@ -389,5 +390,65 @@ describe('without ffmpeg', () => {
     } finally {
       await bare.close();
     }
+  });
+});
+
+describe('upload rate limits', () => {
+  it('chunk + image uploads use a per-session bucket, not the global per-IP limit (auth + CSRF still enforced)', async () => {
+    const ip = randomIp();
+    const chunkSize = 16;
+    const chunks = GLOBAL_RATE_LIMIT.max + 50; // more requests than the global per-IP budget allows per minute
+    const size = chunks * chunkSize;
+    const init = await t.app.inject({
+      method: 'POST',
+      url: '/api/admin/videos/uploads',
+      headers: admin(cookie),
+      remoteAddress: ip,
+      payload: { placeId: place.id, fileName: 'burst.mp4', size, mimeType: 'video/mp4' },
+    });
+    expect(init.statusCode).toBe(201);
+    const { videoId } = init.json() as VideoUploadSession;
+    const url = `/api/admin/videos/${videoId}/upload`;
+
+    const statuses = new Set<number>();
+    let last: Awaited<ReturnType<typeof t.app.inject>> | undefined;
+    for (let i = 0; i < chunks; i++) {
+      last = await t.app.inject({
+        method: 'PATCH',
+        url,
+        headers: { ...admin(cookie), 'content-type': 'application/octet-stream', 'upload-offset': String(i * chunkSize) },
+        remoteAddress: ip,
+        payload: Buffer.alloc(chunkSize, i % 256),
+      });
+      statuses.add(last.statusCode);
+    }
+    expect([...statuses]).toEqual([200]);
+    expect(last?.json()).toEqual({ offset: size });
+    expect(Number(last?.headers['x-ratelimit-limit'])).toBe(RATE_LIMITS.upload.max);
+
+    // The chunks did not eat into this IP's global budget.
+    const list = await t.app.inject({ method: 'GET', url: '/api/admin/places', headers: { cookie }, remoteAddress: ip });
+    expect(list.statusCode).toBe(200);
+    expect(Number(list.headers['x-ratelimit-limit'])).toBe(GLOBAL_RATE_LIMIT.max);
+    expect(Number(list.headers['x-ratelimit-remaining'])).toBeGreaterThanOrEqual(GLOBAL_RATE_LIMIT.max - 2);
+
+    // Image uploads share the per-session upload bucket.
+    const png = await fs.readFile(path.join(fixtures, 'image.png'));
+    const { payload, headers } = multipartBody('file', 'cover.png', 'image/png', png);
+    const img = await t.app.inject({ method: 'POST', url: '/api/admin/uploads/image', headers: { ...admin(cookie), ...headers }, remoteAddress: ip, payload });
+    expect(img.statusCode).toBe(201);
+    expect(Number(img.headers['x-ratelimit-limit'])).toBe(RATE_LIMITS.upload.max);
+
+    // Auth and the CSRF header are still required on the exempted routes.
+    const chunk = { 'content-type': 'application/octet-stream', 'upload-offset': String(size) };
+    const anon = await t.app.inject({ method: 'PATCH', url, headers: { 'x-s5y-admin': '1', ...chunk }, remoteAddress: ip, payload: Buffer.alloc(1) });
+    expect(anon.statusCode).toBe(401);
+    const noCsrf = await t.app.inject({ method: 'PATCH', url, headers: { cookie, ...chunk }, remoteAddress: ip, payload: Buffer.alloc(1) });
+    expect(noCsrf.statusCode).toBe(403);
+    const anonImage = await t.app.inject({ method: 'POST', url: '/api/admin/uploads/image', headers: { 'x-s5y-admin': '1', ...headers }, remoteAddress: ip, payload });
+    expect(anonImage.statusCode).toBe(401);
+
+    const del = await t.app.inject({ method: 'DELETE', url: `/api/admin/videos/${videoId}`, headers: admin(cookie), remoteAddress: ip });
+    expect(del.statusCode).toBe(204);
   });
 });

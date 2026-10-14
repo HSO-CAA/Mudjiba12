@@ -35,11 +35,28 @@ export function isTouchDevice(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 }
 
+const QUALITY_KEY = 's5y:quality';
+
+/** `?quality=low|medium|high` QA override — remembered for the tab so it survives client-side navigation. */
+function forcedQuality(): QualityTier | null {
+  if (typeof window === 'undefined') return null;
+  const q = new URLSearchParams(window.location.search).get('quality');
+  try {
+    if (q === 'low' || q === 'medium' || q === 'high') {
+      sessionStorage.setItem(QUALITY_KEY, q);
+      return q;
+    }
+    if (q === 'auto') sessionStorage.removeItem(QUALITY_KEY);
+    const saved = sessionStorage.getItem(QUALITY_KEY);
+    return saved === 'low' || saved === 'medium' || saved === 'high' ? saved : null;
+  } catch {
+    return q === 'low' || q === 'medium' || q === 'high' ? q : null;
+  }
+}
+
 /** True when the tier comes from the `?quality=` QA override. */
 export function isQualityForced(): boolean {
-  if (typeof window === 'undefined') return false;
-  const q = new URLSearchParams(window.location.search).get('quality');
-  return q === 'low' || q === 'medium' || q === 'high';
+  return forcedQuality() !== null;
 }
 
 const SOFTWARE_RENDERERS = /swiftshader|llvmpipe|softpipe|software|basic render|microsoft basic/i;
@@ -47,12 +64,12 @@ const WEAK_GPUS = /mali-(4|t6|t7|g31|g51|g52)|adreno \(tm\) (3|4|50)|powervr|int
 
 /**
  * Initial quality tier from cheap device signals. `PerformanceMonitor` refines it at runtime.
- * `?quality=low|medium|high` overrides (useful for QA on a given device).
+ * `?quality=low|medium|high` overrides (useful for QA on a given device; `?quality=auto` clears it).
  */
 export function detectQualityTier(): QualityTier {
   if (typeof window === 'undefined') return 'low';
-  const forced = new URLSearchParams(window.location.search).get('quality');
-  if (forced === 'low' || forced === 'medium' || forced === 'high') return forced;
+  const forced = forcedQuality();
+  if (forced) return forced;
   probeWebGL();
   const name = rendererName ?? '';
   if (SOFTWARE_RENDERERS.test(name) || WEAK_GPUS.test(name)) return 'low';

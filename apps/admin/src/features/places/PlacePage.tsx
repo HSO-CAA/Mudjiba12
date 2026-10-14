@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { ChevronRight, CircleAlert, Clapperboard, Ellipsis, ExternalLink, EyeOff, ImagePlus, MapPin, SlidersHorizontal, Star, Store, Trash2 } from 'lucide-react';
 import type { AdminPlaceDetail } from '@s5y/shared';
 import { ApiError } from '../../lib/api';
+import { formatVideoCount } from '../../lib/format';
 import { placeSiteUrl } from '../../lib/site';
 import { Button, ButtonLink, buttonStyles, IconButton } from '../../components/ui/button';
 import { useConfirm } from '../../components/ui/confirm';
@@ -56,7 +57,9 @@ function PlaceView({ place }: { place: AdminPlaceDetail }) {
   const onDelete = async () => {
     const ok = await confirm({
       title: `حذف «${place.name}»؟`,
-      description: `راح تنحذف صفحة المكان و${place.videoCount ? `${place.videoCount} فيديو` : 'كل فيديوهاته'} وملفاتها نهائياً. ما تگدر ترجعها.`,
+      description: place.videoCount
+        ? `راح تنحذف صفحة المكان ومعها ${formatVideoCount(place.videoCount)} وملفاتها نهائياً. ما تگدر ترجعها.`
+        : 'راح تنحذف صفحة المكان نهائياً. ما تگدر ترجعها.',
       confirmLabel: 'احذف المكان',
     });
     if (!ok) return;
@@ -89,7 +92,7 @@ function PlaceView({ place }: { place: AdminPlaceDetail }) {
             />
           )}
           <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/40 to-transparent" />
-          <div className="hud absolute end-4 top-4 hidden items-center gap-2 text-white/70 sm:flex" dir="ltr">
+          <div className="hud absolute end-4 top-4 hidden items-center gap-2 normal-case text-white/70 sm:flex" dir="ltr">
             <span className="size-1.5 rounded-full" style={{ background: place.accentColor }} />
             /work/{place.slug}
           </div>

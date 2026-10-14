@@ -307,13 +307,32 @@ export function ContactTab({ doc, update, errors }: SettingsTabProps) {
     <Card className="divide-y divide-line px-5 py-6 sm:px-7">
       <FormSection title="التواصل المباشر" description="زر الواتساب هو أهم زر بالموقع — تأكد من الرقم.">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="واتساب" hint="بالصيغة الدولية بدون + أو 00، مثل 9647701234567" error={errors['contact.whatsapp']}>
+          <Field
+            label="واتساب"
+            hint={
+              c.whatsapp ? (
+                <>
+                  زر الواتساب يفتح{' '}
+                  <span className="num" dir="ltr">
+                    wa.me/{c.whatsapp}
+                  </span>
+                </>
+              ) : (
+                'بالصيغة الدولية بدون + أو 00، مثل 9647701234567'
+              )
+            }
+            error={errors['contact.whatsapp']}
+          >
             <Input
               value={c.whatsapp}
               onChange={(e) => {
                 let digits = normalizeDigits(e.target.value).replace(/\D/g, '');
                 if (digits.startsWith('00')) digits = digits.slice(2);
                 set('whatsapp', digits.slice(0, 15));
+              }}
+              // A local Iraqi number (07xx xxx xxxx) doesn't work in wa.me links: turn it into 9647xx…
+              onBlur={() => {
+                if (/^07\d{9}$/.test(c.whatsapp)) set('whatsapp', `964${c.whatsapp.slice(1)}`);
               }}
               inputMode="tel"
               ltr
@@ -377,7 +396,7 @@ export function HomeTab({ doc, update, errors }: SettingsTabProps) {
               اختار لحد {MAX_HERO} فيديوهات جاهزة تشتغل على الشاشات ثلاثية الأبعاد بأول الموقع. إذا ما اخترت شي، تنعرض الفيديوهات المميزة تلقائياً.
             </p>
           </div>
-          <span className="num rounded-full bg-white/[0.05] px-2.5 py-1 text-xs text-fg-2">
+          <span className="num rounded-full bg-white/[0.05] px-2.5 py-1 text-xs text-fg-2" dir="ltr">
             {ids.length} / {MAX_HERO}
           </span>
         </div>

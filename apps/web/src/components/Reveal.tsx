@@ -9,18 +9,28 @@ interface RevealProps {
   y?: number;
   className?: string;
   as?: 'div' | 'li' | 'p' | 'section' | 'span';
+  /**
+   * Animate when this turns true (above-the-fold hero content) instead of on scroll. Content sitting near
+   * the bottom edge of a full-height hero would otherwise stay invisible until the visitor scrolls.
+   */
+  play?: boolean;
 }
 
-/** Fades + lifts content in once it scrolls into view. */
-export function Reveal({ children, delay = 0, y = 28, className, as = 'div' }: RevealProps) {
+/** Fades + lifts content in once it scrolls into view (or when `play` turns true). */
+export function Reveal({ children, delay = 0, y = 28, className, as = 'div', play }: RevealProps) {
   const reduced = useReducedMotion();
   const Comp = motion[as];
+  const hidden = reduced ? { opacity: 0 } : { opacity: 0, y };
+  const shown = { opacity: 1, y: 0 };
+  const trigger =
+    play === undefined
+      ? { whileInView: shown, viewport: { once: true, margin: '0px 0px -12% 0px' } }
+      : { animate: play ? shown : hidden };
   return (
     <Comp
       className={className}
-      initial={reduced ? { opacity: 0 } : { opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+      initial={hidden}
+      {...trigger}
       transition={{ duration: reduced ? 0.2 : 0.95, delay, ease: EASE }}
     >
       {children}
@@ -63,6 +73,8 @@ export function RevealLines({ lines, className, lineClassName, delay = 0, play, 
           >
             {line}
           </motion.span>
+          {/* keeps words apart in the heading's accessible name (lines are separate block spans) */}
+          {i < lines.length - 1 ? ' ' : null}
         </span>
       ))}
     </Tag>

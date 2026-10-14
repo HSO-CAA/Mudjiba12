@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
+import { motion, useMotionValueEvent, useReducedMotion, useTransform } from 'motion/react';
 import type { HomeData } from '@s5y/shared';
 import { heroState, bindPointer } from '../3d/heroState';
 import { useBoot } from '../app/loading';
@@ -11,6 +11,7 @@ import { RecTimecode } from '../components/RecTimecode';
 import { RevealLines } from '../components/Reveal';
 import { useInView } from '../hooks/useInView';
 import { usePageVisible } from '../hooks/usePageVisible';
+import { useScrollProgress } from '../hooks/useScrollProgress';
 import { whatsappUrl } from '../lib/links';
 import { HeroStage } from './HeroStage';
 
@@ -26,7 +27,7 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
   const inView = useInView(ref, { rootMargin: '0px' });
   const visible = usePageVisible();
 
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] });
+  const scrollYProgress = useScrollProgress(ref, 'contain');
   const [covered, setCovered] = useState(false);
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
     heroState.progress = v;
@@ -55,18 +56,18 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
         <HeroStage videos={heroVideos} accent={brand.accent} mark={brand.heroMark || brand.name} active={inView && visible && !covered} />
 
         {/* legibility gradients */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(to_left,rgba(6,6,7,0.88)_0%,rgba(6,6,7,0.55)_30%,transparent_58%)] md:block" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_8%,rgba(6,6,7,0.7)_45%,transparent)] md:h-[34%]" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(to_left,rgba(6,6,7,0.88)_0%,rgba(6,6,7,0.55)_30%,transparent_58%)] wide:block" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_8%,rgba(6,6,7,0.7)_45%,transparent)] wide:h-[34%]" />
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-bg/80 to-transparent" />
 
         {/* viewfinder HUD */}
         <motion.div style={{ opacity: hudOpacity }} className="pointer-events-none absolute inset-x-4 bottom-4 top-[calc(var(--header-h)+0.5rem)] sm:inset-x-6 sm:bottom-6" aria-hidden="true">
           <div className="viewfinder absolute inset-0 opacity-70 [--vf-size:22px]" />
-          <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-4 sm:inset-x-5 sm:top-5">
+          <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-4 sm:inset-x-5 sm:top-5 short:hidden">
             <RecTimecode />
             <p className="hud hidden text-text/60 sm:block">4K · 24FPS · ISO 800 · ƒ/1.4 · 1/50</p>
           </div>
-          <div className="absolute inset-x-4 bottom-4 hidden items-end justify-between gap-4 sm:inset-x-5 sm:bottom-5 sm:flex">
+          <div className="absolute inset-x-4 bottom-4 hidden items-end justify-between gap-4 sm:inset-x-5 sm:bottom-5 sm:flex short:hidden">
             <p className="hud text-text/55">
               SCENE 01 <span className="text-muted">·</span> TAKE 03
             </p>
@@ -88,12 +89,12 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
         {/* copy */}
         <motion.div
           style={{ opacity: copyOpacity, y: copyY, filter: copyBlur }}
-          className="absolute inset-x-0 bottom-0 pb-[max(2.5rem,env(safe-area-inset-bottom))] md:inset-y-0 md:flex md:items-center md:pb-0"
+          className="absolute inset-x-0 bottom-0 pb-[max(2.5rem,env(safe-area-inset-bottom))] wide:inset-y-0 wide:flex wide:items-center wide:pb-0"
         >
           <div className="container-cine">
-            <div className="max-w-xl md:ms-0 md:max-w-[min(40rem,46vw)] md:pt-10">
+            <div className="max-w-xl wide:ms-0 wide:max-w-[min(40rem,46vw)] wide:pt-10 short:pt-[calc(var(--header-h)-0.5rem)]">
               <motion.p
-                className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text/80 sm:text-base"
+                className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text/80 sm:text-base short:mb-2 short:text-sm"
                 initial={{ opacity: 0, y: 12 }}
                 animate={dismissed ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
                 transition={{ duration: 0.9, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
@@ -114,7 +115,7 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
                 play={dismissed}
                 delay={0.45}
                 lines={[brand.name]}
-                className="display-xl text-[clamp(4.6rem,15vw,11.5rem)] leading-[0.86] [text-shadow:0_10px_60px_rgba(0,0,0,0.5)]"
+                className="display-xl text-[clamp(4.6rem,15vw,11.5rem)] leading-[0.86] [text-shadow:0_10px_60px_rgba(0,0,0,0.5)] short:text-[min(15vw,22svh)]"
                 lineClassName="font-black"
               />
               <RevealLines
@@ -122,10 +123,10 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
                 play={dismissed}
                 delay={0.62}
                 lines={[brand.tagline]}
-                className="mt-4 max-w-[34rem] font-display text-[clamp(1.35rem,3.4vw,2.2rem)] font-bold leading-[1.35] text-text/95 text-balance"
+                className="mt-4 max-w-[34rem] font-display text-[clamp(1.35rem,3.4vw,2.2rem)] font-bold leading-[1.35] text-text/95 text-balance short:mt-2 short:text-[clamp(1.05rem,5.5svh,1.5rem)]"
               />
               <motion.div
-                className="mt-8 flex flex-wrap items-center gap-3"
+                className="mt-8 flex flex-wrap items-center gap-3 short:mt-4"
                 initial={{ opacity: 0, y: 16 }}
                 animate={dismissed ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
                 transition={{ duration: 0.9, delay: 0.85, ease: [0.16, 1, 0.3, 1] }}
@@ -150,7 +151,7 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
         </motion.div>
 
         {/* scroll cue */}
-        <motion.div style={{ opacity: cueOpacity }} className="pointer-events-none absolute bottom-8 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-3 md:flex" aria-hidden="true">
+        <motion.div style={{ opacity: cueOpacity }} className="pointer-events-none absolute bottom-8 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-3 wide:flex short:hidden" aria-hidden="true">
           <span className="text-xs text-muted">انزل وادخل للعدسة</span>
           <span className="relative h-12 w-px overflow-hidden bg-line-strong">
             <span className="scroll-cue-line absolute inset-0 bg-accent" />

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
+  AdditiveBlending,
   BackSide,
   Color,
   CylinderGeometry,
   DoubleSide,
-  FrontSide,
   Group,
   Mesh,
+  MeshBasicMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
   RingGeometry,
@@ -16,7 +17,14 @@ import {
   type BufferGeometry,
 } from 'three';
 import { createIrisBlade, createLatheZ, createRidgedRing } from './geometry';
-import { createBarrelTexture, createDistanceScaleTexture, createFrontRingTexture, createStopScaleTexture } from './textures';
+import {
+  createBarrelTexture,
+  createDistanceScaleTexture,
+  createFrontRingTexture,
+  createSoftShadowTexture,
+  createStopScaleTexture,
+  createTurnedRoughnessTexture,
+} from './textures';
 import { clamp01, damp, easeOutExpo, heroState, smoothstep } from './heroState';
 import type { QualityProfile } from './quality';
 
@@ -56,6 +64,7 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
   const group = useRef<Group>(null);
   const focusRing = useRef<Group>(null);
   const blades = useRef<(Mesh | null)[]>([]);
+  const shadow = useRef<Group>(null);
   const smooth = useRef({ p: 0, yaw: 1.1, pitch: 0, aperture: 0.06 });
   const seg = profile.radialSegments;
 
@@ -67,6 +76,19 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
       front: createFrontRingTexture(`${(mark || 'S5Y').toUpperCase()} CINE PRIME ● 35mm 1:1.4 ● Ø95 ● LENS MADE FOR STORIES ●`, accent, 0.8 / 1.02),
     }),
     [accent, mark],
+  );
+  const turned = useMemo(() => {
+    const t = createTurnedRoughnessTexture();
+    t.repeat.set(1, 3);
+    return t;
+  }, []);
+  const shadowMap = useMemo(() => createSoftShadowTexture(), []);
+  useEffect(
+    () => () => {
+      turned.dispose();
+      shadowMap.dispose();
+    },
+    [turned, shadowMap],
   );
 
   useEffect(() => {
@@ -139,7 +161,11 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
         seg,
       ),
       frontGlass: capGeometry(1.35, 0.79, seg),
-      innerGlass: capGeometry(0.95, 0.56, Math.round(seg / 2)),
+      // inner element surfaces (only their coating reflections are drawn — the "depth" of a real lens)
+      coatRear: capGeometry(1.9, 0.76, seg, true),
+      coatMid: capGeometry(1.2, 0.58, Math.round(seg * 0.75)),
+      coatDeep: capGeometry(0.9, 0.46, Math.round(seg / 2), true),
+      shadow: new RingGeometry(0, 0.5, 48, 1),
       baffle1: new RingGeometry(0.6, 0.79, seg, 1),
       baffle2: new RingGeometry(0.52, 0.79, seg, 1),
       baffle3: new RingGeometry(0.45, 0.79, seg, 1),
@@ -153,21 +179,26 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
   useEffect(() => () => Object.values(geos).forEach((g) => g.dispose()), [geos]);
 
   const mats = useMemo(() => {
+    // Black anodising is a dyed, transparent oxide: it reflects like a dielectric (white, Fresnel-driven
+    // highlights) rather than like a near-black metal, which is what keeps the barrel from reading as a blob.
     const anodised = new MeshPhysicalMaterial({
-      color: '#0f0f11',
-      metalness: 0.78,
-      roughness: 0.36,
-      clearcoat: 0.4,
-      clearcoatRoughness: 0.32,
+      color: '#151518',
+      metalness: 0.12,
+      roughness: 0.46,
+      roughnessMap: turned,
+      clearcoat: 0.7,
+      clearcoatRoughness: 0.2,
+      specularIntensity: 0.9,
     });
     const engraved = (map: typeof textures.barrel) =>
       new MeshPhysicalMaterial({
         map,
         color: '#ffffff',
-        metalness: 0.45,
-        roughness: 0.42,
-        clearcoat: 0.3,
-        clearcoatRoughness: 0.35,
+        metalness: 0.1,
+        roughness: 0.48,
+        roughnessMap: turned,
+        clearcoat: 0.55,
+        clearcoatRoughness: 0.24,
       });
     const glass = profile.transmission
       ? new MeshPhysicalMaterial({
@@ -186,6 +217,8 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
           clearcoatRoughness: 0.012,
           specularIntensity: 1,
           envMapIntensity: 1.5,
+          // let the inner coating reflections (transparent, drawn later) show through
+          depthWrite: false,
         })
       : new MeshPhysicalMaterial({
           color: '#04050a',
@@ -197,18 +230,34 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
           iridescenceIOR: 1.45,
           iridescenceThicknessRange: [280, 720],
           transparent: true,
-          opacity: 0.74,
+          opacity: 0.62,
           depthWrite: false,
           envMapIntensity: 1.3,
         });
+    /** Specular-only coating layer: black diffuse + additive blend = just the tinted reflections of the studio. */
+    const coating = (ior: number, range: [number, number], intensity: number) =>
+      new MeshPhysicalMaterial({
+        color: '#000000',
+        metalness: 0,
+        roughness: 0.035,
+        iridescence: 1,
+        iridescenceIOR: ior,
+        iridescenceThicknessRange: range,
+        specularIntensity: 1,
+        envMapIntensity: intensity,
+        transparent: true,
+        blending: AdditiveBlending,
+        depthWrite: false,
+      });
     return {
       anodised,
       barrel: engraved(textures.barrel),
       stops: engraved(textures.stops),
       distance: engraved(textures.distance),
       face: engraved(textures.front),
-      gear: new MeshStandardMaterial({ color: '#0b0b0c', metalness: 0.6, roughness: 0.46 }),
-      grip: new MeshStandardMaterial({ color: '#111113', metalness: 0.7, roughness: 0.34 }),
+      // flat-shaded gear teeth: each facet catches the rim strips differently → readable knurling
+      gear: new MeshPhysicalMaterial({ color: '#17171a', metalness: 0.18, roughness: 0.34, clearcoat: 0.45, clearcoatRoughness: 0.28 }),
+      grip: new MeshPhysicalMaterial({ color: '#1a1a1d', metalness: 0.3, roughness: 0.38, clearcoat: 0.3, clearcoatRoughness: 0.35 }),
       chrome: new MeshStandardMaterial({ color: '#e4e4e8', metalness: 1, roughness: 0.12 }),
       accent: new MeshPhysicalMaterial({
         color: new Color(accent),
@@ -217,23 +266,13 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
         clearcoat: 1,
         clearcoatRoughness: 0.08,
       }),
-      interior: new MeshStandardMaterial({ color: '#030304', metalness: 0.1, roughness: 0.92, side: DoubleSide }),
-      lip: new MeshStandardMaterial({ color: '#050506', metalness: 0.3, roughness: 0.7, side: BackSide }),
+      interior: new MeshStandardMaterial({ color: '#050506', metalness: 0.1, roughness: 0.86, side: DoubleSide }),
+      lip: new MeshStandardMaterial({ color: '#08080a', metalness: 0.3, roughness: 0.6, side: BackSide }),
       blade: new MeshStandardMaterial({ color: '#3a3a41', metalness: 0.85, roughness: 0.26, side: DoubleSide }),
       glass,
-      innerGlass: new MeshPhysicalMaterial({
-        color: '#0a0b14',
-        metalness: 0.2,
-        roughness: 0.04,
-        clearcoat: 1,
-        iridescence: 1,
-        iridescenceIOR: 1.8,
-        iridescenceThicknessRange: [250, 600],
-        transparent: true,
-        opacity: 0.18,
-        depthWrite: false,
-        side: FrontSide,
-      }),
+      coatRear: coating(1.3, [380, 620], 0.95),
+      coatMid: coating(1.8, [250, 520], 0.85),
+      coatDeep: coating(2.1, [420, 800], 1.15),
       rearGlass: new MeshPhysicalMaterial({
         color: '#120a2a',
         metalness: 0.3,
@@ -243,8 +282,9 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
         iridescenceThicknessRange: [300, 700],
         clearcoat: 1,
       }),
+      shadow: new MeshBasicMaterial({ map: shadowMap, color: '#000000', transparent: true, opacity: 0.8, depthWrite: false }),
     } satisfies Record<string, Material>;
-  }, [accent, profile.transmission, textures]);
+  }, [accent, profile.transmission, textures, turned, shadowMap]);
 
   useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
 
@@ -291,9 +331,16 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
     for (const b of blades.current) if (b) b.position.y = offset;
 
     if (focusRing.current) focusRing.current.rotation.z = -s.p * 1.4 + (1 - e) * 0.8;
+    // the soft floor shadow follows the lens heading (yaw only) and tightens a touch as it bobs down
+    if (shadow.current) {
+      shadow.current.rotation.y = g.rotation.y;
+      const h = g.position.y - 1.3;
+      shadow.current.scale.setScalar(1 + h * 1.5);
+    }
   });
 
   return (
+    <>
     <group ref={group} position={[0, 1.3, 0]} rotation={[0, 1.1, 0]}>
       <group position={[0, 0, 0.12]}>
         <mesh geometry={geos.mount} material={mats.chrome} />
@@ -332,11 +379,20 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
           ))}
         </group>
         <mesh geometry={geos.baffle3} material={mats.interior} position={[0, 0, 0.38]} />
-        <mesh geometry={geos.innerGlass} material={mats.innerGlass} position={[0, 0, 0.46]} />
         <mesh geometry={geos.baffle2} material={mats.interior} position={[0, 0, 0.56]} />
         <mesh geometry={geos.baffle1} material={mats.interior} position={[0, 0, 0.7]} />
-        <mesh geometry={geos.frontGlass} material={mats.glass} position={[0, 0, 0.84]} />
+        <mesh geometry={geos.frontGlass} material={mats.glass} position={[0, 0, 0.84]} renderOrder={1} />
+        {/* nested element reflections, drawn after the front glass: inverted (concave) and upright (convex) images */}
+        <mesh geometry={geos.coatDeep} material={mats.coatDeep} position={[0, 0, 0.44]} renderOrder={2} />
+        <mesh geometry={geos.coatMid} material={mats.coatMid} position={[0, 0, 0.52]} renderOrder={2} />
+        <mesh geometry={geos.coatRear} material={mats.coatRear} position={[0, 0, 0.8]} renderOrder={2} />
       </group>
     </group>
+    <group ref={shadow} position={[0, 0.004, 0]} rotation={[0, 1.1, 0]}>
+      {/* broad penumbra + tighter core, elongated along the barrel */}
+      <mesh geometry={geos.shadow} material={mats.shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -0.05]} scale={[4.2, 6.4, 1]} />
+      <mesh geometry={geos.shadow} material={mats.shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, -0.05]} scale={[2.4, 4.6, 1]} />
+    </group>
+    </>
   );
 }

@@ -1,14 +1,30 @@
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AppContext } from '../context.js';
 import { AppError, forbidden } from '../lib/errors.js';
+
+/** Global limit per client IP (docs/CONTRACT.md). */
+export const GLOBAL_RATE_LIMIT = { max: 600, timeWindow: '1 minute' } as const;
 
 /** Per-route limits from docs/CONTRACT.md (`config: { rateLimit: … }`). */
 export const RATE_LIMITS = {
   login: { max: 10, timeWindow: '15 minutes' },
   inquiries: { max: 5, timeWindow: '10 minutes' },
   track: { max: 120, timeWindow: '1 minute' },
+  /**
+   * Authenticated uploads (video chunks, images) use their own generous bucket per admin session instead of
+   * the global per-IP one — a fast connection legitimately sends hundreds of chunk requests per minute.
+   * Route-level hooks run after the admin scope's auth hook, so `request.auth` is already resolved here
+   * (unauthenticated requests are rejected with 401 before reaching the limiter), and the CSRF header check
+   * (root `onRequest`) still runs first.
+   */
+  upload: {
+    max: 6000,
+    timeWindow: '1 minute',
+    keyGenerator: (request: FastifyRequest): string =>
+      request.auth ? `upload:${request.auth.session.id}` : `upload-ip:${request.ip}`,
+  },
 } as const;
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -45,11 +61,18 @@ export async function registerSecurity(app: FastifyInstance, ctx: AppContext): P
     strictTransportSecurity: ctx.config.cookieSecure ? { maxAge: 31_536_000, includeSubDomains: true } : false,
   });
 
+  // Hashed build assets and media files are cheap static reads that one page view requests dozens of times
+  // (JS chunks, fonts, posters, video Range requests). Counting them against the per-IP API budget would
+  // 429 real visitors who share a carrier-grade NAT address (common on Iraqi mobile networks).
+  const staticRoutes = new Set(['/assets/*', '/media/*', `${ctx.config.adminPath}/assets/*`]);
+
   await app.register(rateLimit, {
     global: true,
-    max: 600,
-    timeWindow: '1 minute',
-    keyGenerator: (request) => request.ip,
+    ...GLOBAL_RATE_LIMIT,
+    // No custom keyGenerator: the plugin's default keys on `request.ip` normalised (IPv4-mapped IPv6 → IPv4,
+    // IPv6 → its /64), so a client can't dodge every per-IP limit by rotating addresses inside its own /64.
+    allowList: (request) =>
+      (request.method === 'GET' || request.method === 'HEAD') && staticRoutes.has(request.routeOptions.url ?? ''),
     errorResponseBuilder: (_request, context) =>
       new AppError(429, 'RATE_LIMITED', 'طلبات كثيرة خلال وقت قصير، حاول بعد شوي', {
         retryAfterSec: Math.max(1, Math.ceil(context.ttl / 1000)),

@@ -229,7 +229,7 @@ describe('password change', () => {
     expect(details[0]?.path).toEqual(['currentPassword']);
   });
 
-  it('changes the password and revokes every other session', async () => {
+  it('changes the password, revokes every session and moves this browser to a fresh one', async () => {
     const a = await login(t.app);
     const b = await login(t.app);
     const res = await t.app.inject({
@@ -239,8 +239,15 @@ describe('password change', () => {
       payload: { currentPassword: OWNER.password, newPassword: 'Brand-New-Password-1' },
     });
     expect(res.statusCode).toBe(204);
-    expect((await t.app.inject({ method: 'GET', url: '/api/admin/auth/me', headers: { cookie: a } })).statusCode).toBe(200);
+    // A stolen copy of the current cookie must not survive the password change either.
+    const rotated = sessionCookie(res);
+    expect(rotated).not.toBe(a);
+    expect(res.cookies.filter((c) => c.name === 's5y_sid')).toHaveLength(1);
+    expect((await t.app.inject({ method: 'GET', url: '/api/admin/auth/me', headers: { cookie: rotated } })).statusCode).toBe(200);
+    expect((await t.app.inject({ method: 'GET', url: '/api/admin/auth/me', headers: { cookie: a } })).statusCode).toBe(401);
     expect((await t.app.inject({ method: 'GET', url: '/api/admin/auth/me', headers: { cookie: b } })).statusCode).toBe(401);
+    const user = await t.ctx.prisma.user.findUniqueOrThrow({ where: { email: OWNER.email } });
+    expect(await t.ctx.prisma.session.count({ where: { userId: user.id } })).toBe(1);
     expect((await loginRequestRaw(OWNER.password)).statusCode).toBe(401);
     const fresh = await loginRequestRaw('Brand-New-Password-1');
     expect(fresh.statusCode).toBe(200);

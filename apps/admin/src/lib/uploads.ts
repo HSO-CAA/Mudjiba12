@@ -45,6 +45,8 @@ export interface UploadItem {
   /** Seconds remaining, null when unknown. */
   eta: number | null;
   error: string | null;
+  /** The error can't be fixed by retrying (e.g. the file isn't a real video): offer removal, not "retry". */
+  fatal: boolean;
   /** Consecutive failed attempts for the current chunk. */
   attempt: number;
   /** Countdown until the next automatic retry. */
@@ -193,6 +195,7 @@ class UploadManager {
   resume(id: string): void {
     const item = this.items.get(id);
     if (!item || (item.phase !== 'paused' && item.phase !== 'error')) return;
+    if (item.fatal) return;
     this.patch(id, { phase: 'queued', error: null, attempt: 0, retryInSec: null });
     this.pump();
   }
@@ -242,6 +245,7 @@ class UploadManager {
       speed: 0,
       eta: null,
       error: null,
+      fatal: false,
       attempt: 0,
       retryInSec: null,
       posterPreview: null,
@@ -336,6 +340,8 @@ class UploadManager {
         const failed = this.patch(id, {
           phase: 'error',
           error: errorMessage(error, 'تعذّر رفع الفيديو'),
+          // 401 is fixed by signing in again; other 4xx (bad file, too large, deleted video) won't change on retry.
+          fatal: error instanceof ApiError && !isRetryable(error) && error.status !== 401,
           speed: 0,
           eta: null,
           retryInSec: null,

@@ -7,8 +7,10 @@ import type { QualityTier } from '../lib/device';
 import type { CarouselController } from './carouselController';
 import { PHONE } from './geometry';
 import { Phone, createPhoneKit } from './Phone';
-import { StudioEffects, StudioEnvironment, StudioFloor, ensureRectAreaLights } from './Studio';
+import { FloorShadow, SharedTextureRelease, StudioEffects, StudioEnvironment, StudioFloor, ensureRectAreaLights } from './Studio';
+import { createSoftShadowTexture } from './textures';
 import { damp } from './heroState';
+import { DebugHandle } from './DebugHandle';
 import { lowerTier, qualityProfile, type QualityProfile } from './quality';
 
 export interface ReelCarouselSceneProps {
@@ -55,6 +57,15 @@ function Carousel({
 }) {
   const kit = useMemo(() => createPhoneKit('titanium'), []);
   useEffect(() => () => kit.dispose(), [kit]);
+  const shadowMap = useMemo(() => createSoftShadowTexture(), []);
+  useEffect(() => () => shadowMap.dispose(), [shadowMap]);
+  // leaving the page while hovering a screen must not leave a pointer cursor behind
+  useEffect(
+    () => () => {
+      document.body.style.cursor = '';
+    },
+    [],
+  );
   const ring = useRef<Group>(null);
   const slots = slotCountFor(videos.length);
   const step = TAU / slots;
@@ -127,7 +138,9 @@ function Carousel({
         const theta = i * step;
         const near = Math.min(Math.abs(i - frontSlot), slots - Math.abs(i - frontSlot)) <= 1;
         return (
-          <group key={i} position={[Math.sin(theta) * radius, 1.48, Math.cos(theta) * radius]} rotation={[0, theta, 0]}>
+          <group key={i}>
+          <FloorShadow map={shadowMap} position={[Math.sin(theta) * radius, Math.cos(theta) * radius]} rotationY={theta} size={[2.1, 0.75]} opacity={0.75} />
+          <group position={[Math.sin(theta) * radius, 1.48, Math.cos(theta) * radius]} rotation={[0, theta, 0]}>
             <Phone
               kit={kit}
               videoUrl={video ? (video.previewUrl ?? video.url) : null}
@@ -156,6 +169,7 @@ function Carousel({
                 document.body.style.cursor = '';
               }}
             />
+          </group>
           </group>
         );
       })}
@@ -237,7 +251,9 @@ export default function ReelCarouselScene(props: ReelCarouselSceneProps) {
         <Rig radius={radius} compact={compact} />
         <StudioEffects profile={{ ...profile, depthOfField: false }} focus={[0, 1.4, radius]} />
         <Ready onReady={onReady} />
+        <SharedTextureRelease />
       </Suspense>
+      {import.meta.env.DEV && <DebugHandle name="reel" />}
     </Canvas>
   );
 }

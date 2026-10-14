@@ -5,6 +5,7 @@ import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail, ShieldAlert, Timer, WifiOff 
 import type { AdminUser } from '@s5y/shared';
 import { ApiError } from '../../lib/api';
 import { api } from '../../lib/endpoints';
+import { formatMinutes } from '../../lib/format';
 import { qk } from '../../lib/query';
 import { Button } from '../../components/ui/button';
 import { Field, Input } from '../../components/ui/form';
@@ -14,15 +15,21 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { safeNext } from './session';
 
 function describeError(error: ApiError): { title: string; body: string; icon: ReactNode } {
+  const wait = error.retryAfterSec;
+  const minutes = wait ? Math.max(1, Math.ceil(wait / 60)) : null;
   if (error.code === 'ACCOUNT_LOCKED' || error.status === 423) {
-    return { title: 'الحساب مقفول مؤقتاً', body: error.message, icon: <LockKeyhole /> };
+    return {
+      title: 'الحساب مقفول مؤقتاً',
+      body: minutes
+        ? `صارت محاولات دخول خاطئة كثيرة، فقفلنا الحساب للحماية. حاول مرة ثانية بعد ${formatMinutes(minutes)}.`
+        : error.message,
+      icon: <LockKeyhole />,
+    };
   }
   if (error.code === 'RATE_LIMITED' || error.status === 429) {
-    const wait = error.retryAfterSec;
-    const minutes = wait ? Math.max(1, Math.ceil(wait / 60)) : null;
     return {
       title: 'محاولات كثيرة',
-      body: minutes ? `${error.message} — حاول بعد ${minutes} ${minutes === 1 ? 'دقيقة' : 'دقائق'}.` : error.message,
+      body: minutes ? `حاولت تسجّل دخول هواية مرات خلال وقت قصير. انتظر ${formatMinutes(minutes)} وحاول مرة ثانية.` : error.message,
       icon: <Timer />,
     };
   }
@@ -157,8 +164,8 @@ export default function LoginPage() {
 
           <p className="mt-8 text-xs leading-relaxed text-subtle">
             هذه الصفحة خاصة وغير مرتبطة بالموقع العام. إذا نسيت كلمة المرور، غيّرها من الخادم بأمر
-            <code className="num mx-1 rounded bg-surface-3 px-1.5 py-0.5 text-[0.6875rem] text-fg-2" dir="ltr">
-              npm run create-admin
+            <code className="num mx-1 block break-all rounded bg-surface-3 px-1.5 py-0.5 text-[0.6875rem] text-fg-2" dir="ltr">
+              docker compose exec app node dist/scripts/create-admin.js --email … --password …
             </code>
           </p>
         </div>

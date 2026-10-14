@@ -53,7 +53,9 @@ export function VideoCard({
   const update = useUpdateVideo();
   const [broken, setBroken] = useState(false);
   const horizontal = !!video.width && !!video.height && video.width > video.height;
-  const localActive = upload && upload.phase !== 'done';
+  // The local queue only drives the card while the server still waits for bytes; after that its status wins
+  // (otherwise a rejected file shows the progress ring on top of the "failed" overlay).
+  const localActive = !!upload && upload.phase !== 'done' && video.status === 'UPLOADING';
   const progress = upload ? upload.uploaded / Math.max(1, upload.size) : video.uploadedBytes / Math.max(1, video.sizeBytes);
   const poster = upload?.posterPreview ?? (broken ? null : video.posterUrl);
   const playable = !!video.url && (video.status === 'READY' || video.status === 'PROCESSING');
@@ -103,8 +105,8 @@ export function VideoCard({
           </button>
         )}
 
-        {/* Top controls */}
-        <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-1">
+        {/* Top controls — above the status overlays so a failed/unfinished video can still be reordered */}
+        <div className="absolute inset-x-2 top-2 z-10 flex items-center justify-between gap-1">
           {handle ?? <span />}
           <IconButton
             label={video.featured ? 'إلغاء التمييز' : 'تمييز الفيديو'}
@@ -155,16 +157,27 @@ export function VideoCard({
           </div>
         )}
         {video.status === 'FAILED' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/70 p-3 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/85 p-3 text-center">
             <CircleAlert className="size-6 text-danger" aria-hidden />
             <p className="line-clamp-4 text-xs leading-relaxed text-white/80">{video.processingError || 'فشلت معالجة الفيديو'}</p>
-            <button
-              type="button"
-              onClick={() => actions.onReprocess(video)}
-              className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/25"
-            >
-              <RefreshCw className="size-3.5" aria-hidden /> أعد المعالجة
-            </button>
+            {video.url ? (
+              <button
+                type="button"
+                onClick={() => actions.onReprocess(video)}
+                className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/25"
+              >
+                <RefreshCw className="size-3.5" aria-hidden /> أعد المعالجة
+              </button>
+            ) : (
+              // Nothing on the server to reprocess (e.g. the file wasn't a real video): the only way forward is a new upload.
+              <button
+                type="button"
+                onClick={() => actions.onDelete(video)}
+                className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-medium text-white hover:bg-danger/80"
+              >
+                <Trash2 className="size-3.5" aria-hidden /> احذفه وارفع من جديد
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -209,7 +222,7 @@ export function VideoCard({
                 label: 'إعادة المعالجة',
                 icon: <RefreshCw />,
                 onSelect: () => actions.onReprocess(video),
-                disabled: video.status === 'UPLOADING' || video.status === 'PROCESSING',
+                disabled: video.status === 'UPLOADING' || video.status === 'PROCESSING' || !video.url,
               },
               { label: 'حذف', icon: <Trash2 />, tone: 'danger' as const, separated: true, onSelect: () => actions.onDelete(video) },
             ]}

@@ -45,6 +45,21 @@ export function formatDuration(totalSeconds: number | null | undefined): string 
   return `${h > 0 ? `${h}:` : ''}${mm}:${String(sec).padStart(2, '0')}`;
 }
 
+/** Arabic count of minutes with the right noun form: دقيقة / دقيقتين / 3 دقائق / 15 دقيقة. */
+export function formatMinutes(minutes: number): string {
+  const n = Math.max(1, Math.round(minutes));
+  if (n === 1) return 'دقيقة';
+  if (n === 2) return 'دقيقتين';
+  return `${n} ${n <= 10 ? 'دقائق' : 'دقيقة'}`;
+}
+
+/** Arabic count of videos: فيديو واحد / فيديوين / 3 فيديوهات / 12 فيديو. */
+export function formatVideoCount(count: number): string {
+  if (count === 1) return 'فيديو واحد';
+  if (count === 2) return 'فيديوين';
+  return `${latn.format(count)} ${count >= 3 && count <= 10 ? 'فيديوهات' : 'فيديو'}`;
+}
+
 /** Remaining time for uploads, in short Arabic. */
 export function formatEta(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) return '—';
@@ -81,19 +96,19 @@ export function formatRelative(iso: string, now = Date.now()): string {
 }
 
 /* ─────────────────────────── Prices (mirrors the public site) ─────────────────────────── */
-
-const arabPrice = new Intl.NumberFormat('ar-IQ-u-nu-arab', { maximumFractionDigits: 0 });
+/* One number system everywhere: Western digits + Latin grouping ("750,000 د.ع", "$199"), same as the site. */
 
 export const CURRENCIES = [
   { code: 'IQD', label: 'دينار عراقي', unit: 'د.ع' },
   { code: 'USD', label: 'دولار أمريكي', unit: '$' },
 ] as const;
 
-export function formatPrice(price: number | null, currency: string): { amount: string; unit: string; onRequest: boolean } {
-  if (price === null || !Number.isFinite(price)) return { amount: 'حسب الطلب', unit: '', onRequest: true };
+export function formatPrice(price: number | null, currency: string): { amount: string; unit: string; text: string; onRequest: boolean } {
+  if (price === null || !Number.isFinite(price)) return { amount: 'حسب الطلب', unit: '', text: 'حسب الطلب', onRequest: true };
   const code = currency.toUpperCase();
-  if (code === 'USD') return { amount: latn.format(price), unit: '$', onRequest: false };
-  return { amount: arabPrice.format(price), unit: code === 'IQD' ? 'د.ع' : code, onRequest: false };
+  const amount = latn.format(price);
+  const unit = code === 'IQD' ? 'د.ع' : code === 'USD' ? '$' : code;
+  return { amount, unit, text: code === 'USD' ? `$${amount}` : `${amount} ${unit}`, onRequest: false };
 }
 
 export const PERIOD_LABELS: Record<PlanPeriod, string> = {

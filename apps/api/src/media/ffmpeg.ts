@@ -156,7 +156,7 @@ const toNumber = (value: unknown): number | null => {
 export async function probe(tools: MediaTools, file: string, signal?: AbortSignal): Promise<ProbeResult> {
   const { stdout } = await run(
     tools.ffprobe,
-    ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', file],
+    ['-v', 'error', '-protocol_whitelist', 'file', '-print_format', 'json', '-show_format', '-show_streams', file],
     { signal, timeoutMs: 60_000 },
   );
   const data = JSON.parse(stdout) as { format?: { format_name?: string; duration?: string }; streams?: RawStream[] };

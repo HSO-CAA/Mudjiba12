@@ -20,6 +20,14 @@ import {
 
 const WORK_RE = /^\/work\/([^/]+)\/?$/;
 
+const notFoundMeta = (meta: PageMeta, settings: SiteSettings): PageMeta => ({
+  ...meta,
+  title: `المشهد مو موجود | ${settings.brand.name}`,
+  description: 'الصفحة اللي تدور عليها غير موجودة.',
+  noindex: true,
+  jsonLd: undefined,
+});
+
 const pathnameOf = (request: FastifyRequest): string => {
   const raw = request.url.split('?')[0] ?? '/';
   try {
@@ -87,18 +95,19 @@ export async function registerFrontends(app: FastifyInstance, ctx: AppContext): 
   if (status.admin) {
     const template = new TemplateFile(adminIndex);
     const base = config.adminPath;
-    const head = [
-      `<base href="${escapeHtml(base)}/">`,
-      `<meta name="s5y-admin-base" content="${escapeHtml(base)}">`,
-      '<meta name="robots" content="noindex,nofollow">',
-    ].join('\n    ');
+    const baseTags = [`<base href="${escapeHtml(base)}/">`, `<meta name="s5y-admin-base" content="${escapeHtml(base)}">`];
+    const robotsTag = '<meta name="robots" content="noindex,nofollow">';
+    // The admin's index.html already carries a robots meta; only add one when a template lacks it.
+    const headFor = (template: string): string =>
+      (/<meta\s+name=["']robots["']/i.test(template) ? baseTags : [...baseTags, robotsTag]).join('\n    ');
 
     await registerDist(app, config.adminDist, `${base}/`, [], { 'x-robots-tag': 'noindex, nofollow' });
 
     const serveAdmin = async (request: FastifyRequest, reply: FastifyReply) => {
       const rest = (request.params as { '*'?: string })['*'] ?? '';
       if (rest && hasExtension(rest)) return sendError(request, reply, notFound('الملف غير موجود'));
-      const html = injectAdminHead(await template.read(), head);
+      const raw = await template.read();
+      const html = injectAdminHead(raw, headFor(raw));
       return reply
         .header('cache-control', 'no-cache')
         .header('x-robots-tag', 'noindex, nofollow')
@@ -190,14 +199,13 @@ export async function registerFrontends(app: FastifyInstance, ctx: AppContext): 
           };
         } else {
           statusCode = 404;
-          meta = {
-            ...meta,
-            title: `المشهد مو موجود | ${settings.brand.name}`,
-            description: 'الصفحة اللي تدور عليها غير موجودة.',
-            noindex: true,
-            jsonLd: undefined,
-          };
+          meta = notFoundMeta(meta, settings);
         }
+      } else if (normalized !== '/') {
+        // The SPA only has "/" and "/work/:slug"; anything else renders its 404 page, so the status says so too
+        // (no soft 404s in search engines, and a wrong ADMIN_PATH guess looks like any other missing page).
+        statusCode = 404;
+        meta = notFoundMeta(meta, settings);
       }
 
       const html = injectHead(await template.read(), WEB_HEAD_PLACEHOLDER, renderWebHead(meta), true);

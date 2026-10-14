@@ -280,3 +280,54 @@ export function createNoiseTexture(size = 256, cells = 8, octaves = 4): DataText
   tex.needsUpdate = true;
   return tex;
 }
+
+/**
+ * Lathe-turning marks as a roughness map (linear, green channel): fine circumferential grooves that vary
+ * along the lens axis (texture V) so the satin anodising breaks highlights into believable machined bands.
+ */
+export function createTurnedRoughnessTexture(size = 256): CanvasTexture {
+  const [canvas, ctx] = makeCanvas(32, size);
+  let seed = 4242;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  let drift = 0.8;
+  for (let y = 0; y < size; y++) {
+    // slow wander + fine per-groove jitter, kept in 0.55…1 so the material's roughness stays the ceiling
+    drift += (rand() - 0.5) * 0.06;
+    drift = Math.min(0.95, Math.max(0.65, drift));
+    const v = Math.min(1, Math.max(0.55, drift + (rand() - 0.5) * 0.22));
+    const g = Math.round(v * 255);
+    ctx.fillStyle = `rgb(${g},${g},${g})`;
+    ctx.fillRect(0, y, 32, 1);
+  }
+  const tex = new CanvasTexture(canvas);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.magFilter = LinearFilter;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/** Soft radial falloff (black, alpha only) for contact/ambient-occlusion shadows under floating objects. */
+export function createSoftShadowTexture(size = 128): CanvasTexture {
+  const [canvas, ctx] = makeCanvas(size, size);
+  const c = size / 2;
+  const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+  // roughly gaussian: dense core, long feathered tail
+  const stops: [number, number][] = [
+    [0, 1],
+    [0.18, 0.92],
+    [0.38, 0.62],
+    [0.58, 0.3],
+    [0.78, 0.09],
+    [1, 0],
+  ];
+  for (const [o, a] of stops) g.addColorStop(o, `rgba(0,0,0,${a})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  tex.wrapS = ClampToEdgeWrapping;
+  tex.wrapT = ClampToEdgeWrapping;
+  return tex;
+}

@@ -35,6 +35,9 @@ export async function authRoutes(app: FastifyInstance, ctx: AppContext): Promise
   app.post('/auth/login', { config: { rateLimit: RATE_LIMITS.login } }, async (request, reply) => {
     const { email, password } = parse(loginSchema, request.body ?? {});
     const { user, token } = await ctx.auth.login(email, password, sessionMeta(request));
+    // Signing in again from the same browser replaces its old session instead of leaving it valid.
+    const previous = sessionToken(request);
+    if (previous) await ctx.auth.revoke(previous);
     setSessionCookie(ctx, reply, token);
     request.log.info({ userId: user.id }, 'admin signed in');
     const body: { user: AdminUser } = { user: ctx.serialize.user(user) };
@@ -60,8 +63,10 @@ export async function sessionRoutes(app: FastifyInstance, ctx: AppContext): Prom
   app.post('/auth/password', async (request, reply) => {
     if (!request.auth) throw unauthorized();
     const input = parse(changePasswordSchema, request.body ?? {});
-    const ok = await ctx.auth.changePassword(request.auth.user, request.auth.session.id, input.currentPassword, input.newPassword);
-    if (!ok) throw fieldError('currentPassword', 'كلمة المرور الحالية غير صحيحة');
+    const fresh = await ctx.auth.changePassword(request.auth.user, input.currentPassword, input.newPassword, sessionMeta(request));
+    if (!fresh) throw fieldError('currentPassword', 'كلمة المرور الحالية غير صحيحة');
+    // Every session (this one included) was revoked; this browser continues on a brand-new token.
+    setSessionCookie(ctx, reply, fresh.token);
     request.log.info({ userId: request.auth.user.id }, 'admin password changed');
     return reply.code(204).send();
   });

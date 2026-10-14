@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router';
-import { motion, useScroll, useTransform, useReducedMotion } from 'motion/react';
+import { motion, useTransform, useReducedMotion } from 'motion/react';
 import { useRef } from 'react';
 import type { HomeData, PlaceDetail, PlaceSummary, PublicVideo } from '@s5y/shared';
 import { useQueryClient } from '@tanstack/react-query';
@@ -13,6 +13,7 @@ import { Reveal, RevealLines } from '../components/Reveal';
 import { PlaceSkeleton, ErrorView } from '../components/StateViews';
 import { VideoCard } from '../components/VideoCard';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useScrollProgress } from '../hooks/useScrollProgress';
 import { displayHost, instagramUrl, websiteUrl } from '../lib/links';
 import { formatYear, videosLabel } from '../lib/format';
 import { safeColor } from '../lib/color';
@@ -59,7 +60,7 @@ function PlaceHero({ place, detail }: { place: PlaceSummary; detail?: PlaceDetai
   const ref = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
   const { dismissed } = useBoot();
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
+  const scrollYProgress = useScrollProgress(ref, 'exit');
   const imgY = useTransform(scrollYProgress, [0, 1], ['0%', reduced ? '0%' : '18%']);
   const imgScale = useTransform(scrollYProgress, [0, 1], [1.08, reduced ? 1.08 : 1.22]);
   const fade = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
@@ -82,14 +83,14 @@ function PlaceHero({ place, detail }: { place: PlaceSummary; detail?: PlaceDetai
       <div aria-hidden="true" className="viewfinder absolute inset-x-4 bottom-4 top-[calc(var(--header-h)+0.5rem)] opacity-50 sm:inset-x-6 sm:bottom-6" />
 
       <motion.div style={{ opacity: fade }} className="container-cine relative w-full">
-        <Reveal>
+        <Reveal play={dismissed}>
           <Link to="/" state={{ scrollTo: 'work' }} className="mb-10 inline-flex items-center gap-2 text-sm text-text/75 transition hover:text-text">
             <ArrowBackIcon size={16} /> كل الشغل
           </Link>
         </Reveal>
         <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-4xl">
-            <Reveal delay={0.05} className="mb-6 flex flex-wrap items-center gap-3">
+            <Reveal play={dismissed} delay={0.05} className="mb-6 flex flex-wrap items-center gap-3">
               {place.logoUrl && <img src={place.logoUrl} alt={`شعار ${place.name}`} className="size-16 rounded-full bg-black/40 object-cover ring-1 ring-white/20" />}
               {place.category && (
                 <span className="rounded-full border border-white/15 bg-black/30 px-4 py-2 text-sm backdrop-blur">
@@ -100,12 +101,12 @@ function PlaceHero({ place, detail }: { place: PlaceSummary; detail?: PlaceDetai
             </Reveal>
             <RevealLines as="h1" id="place-title" play={dismissed} lines={[place.name]} delay={0.1} className="display-xl text-[clamp(2.8rem,9vw,7.5rem)]" />
             {place.summary && (
-              <Reveal delay={0.25}>
+              <Reveal play={dismissed} delay={0.25}>
                 <p className="mt-6 max-w-2xl text-lg leading-9 text-text/85 sm:text-xl">{place.summary}</p>
               </Reveal>
             )}
           </div>
-          <Reveal delay={0.3}>
+          <Reveal play={dismissed} delay={0.3}>
             <dl className="grid grid-cols-2 gap-x-10 gap-y-5 text-sm sm:flex sm:gap-10">
               {place.location && (
                 <div>
@@ -171,7 +172,7 @@ function PlaceBody({ place, accent }: { place: PlaceDetail; accent: string }) {
           {place.services.length > 0 && (
             <Reveal delay={0.1}>
               <h2 className="mb-5 flex items-center gap-2 text-sm text-muted">
-                <span className="hud">SERVICES</span>
+                <span className="hud" aria-hidden="true">SERVICES</span>
                 <span aria-hidden="true">·</span>
                 <span>الخدمات</span>
               </h2>

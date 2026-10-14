@@ -1,6 +1,8 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
+
+const SEPARATORS = /[,،\n]/;
 
 /** Free-text tags: Enter / comma / "،" adds, Backspace on empty removes the last. */
 export function ChipsInput({
@@ -25,29 +27,50 @@ export function ChipsInput({
   'aria-describedby'?: string;
 }) {
   const [draft, setDraft] = useState('');
+  // Latest list, also between two events of the same tap (input blur → suggestion click) before React re-renders;
+  // reading `value` there would drop the chip added on blur.
+  const latest = useRef(value);
+  latest.current = value;
+
+  const commit = (next: string[]) => {
+    latest.current = next;
+    onChange(next);
+  };
 
   const add = (raw: string) => {
     const parts = raw
-      .split(/[,،\n]/)
+      .split(SEPARATORS)
       .map((part) => part.trim().slice(0, maxLength))
       .filter(Boolean);
+    setDraft('');
     if (parts.length === 0) return;
-    const next = [...value];
+    const next = [...latest.current];
     for (const part of parts) {
       if (next.length >= max) break;
       if (!next.some((existing) => existing.toLowerCase() === part.toLowerCase())) next.push(part);
     }
-    onChange(next);
-    setDraft('');
+    if (next.length !== latest.current.length) commit(next);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' || event.key === ',' || event.key === '،') {
       event.preventDefault();
       add(draft);
-    } else if (event.key === 'Backspace' && draft === '' && value.length > 0) {
-      onChange(value.slice(0, -1));
+    } else if (event.key === 'Backspace' && draft === '' && latest.current.length > 0) {
+      commit(latest.current.slice(0, -1));
     }
+  };
+
+  /** Phone keyboards often skip keydown for "،" / ","; split on the typed text instead. */
+  const onType = (text: string) => {
+    if (!SEPARATORS.test(text)) {
+      setDraft(text);
+      return;
+    }
+    const parts = text.split(SEPARATORS);
+    const rest = parts.pop() ?? '';
+    add(parts.join(','));
+    setDraft(rest);
   };
 
   const remaining = suggestions.filter((s) => !value.some((v) => v.toLowerCase() === s.toLowerCase()));
@@ -68,7 +91,7 @@ export function ChipsInput({
             {chip}
             <button
               type="button"
-              onClick={() => onChange(value.filter((_, i) => i !== index))}
+              onClick={() => commit(latest.current.filter((_, i) => i !== index))}
               className="grid size-5 place-items-center rounded-md text-muted hover:bg-white/10 hover:text-fg"
               aria-label={`إزالة ${chip}`}
             >
@@ -79,7 +102,7 @@ export function ChipsInput({
         <input
           id={id}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => onType(event.target.value)}
           onKeyDown={onKeyDown}
           onBlur={() => add(draft)}
           placeholder={value.length >= max ? '' : placeholder}

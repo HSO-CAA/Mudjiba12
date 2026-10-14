@@ -1,6 +1,22 @@
+import { useEffect } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from './button';
+
+/** How many save bars are showing; while any is, desktop toasts move up so they never cover its buttons. */
+let visibleBars = 0;
+
+function useLiftToasts(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    visibleBars += 1;
+    document.documentElement.style.setProperty('--toast-offset-bottom', '6.25rem');
+    return () => {
+      visibleBars -= 1;
+      if (visibleBars === 0) document.documentElement.style.removeProperty('--toast-offset-bottom');
+    };
+  }, [active]);
+}
 
 /** Sticky "unsaved changes" bar; sits above the mobile bottom nav. */
 export function SaveBar({
@@ -18,6 +34,7 @@ export function SaveBar({
   message?: string;
   saveLabel?: string;
 }) {
+  useLiftToasts(visible);
   return (
     <div
       aria-hidden={!visible}

@@ -122,7 +122,8 @@ function SlugInput({
       <input
         id={id}
         value={value}
-        onChange={(e) => onChange(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+        // Only what a slug may contain: spaces/underscores become "-", anything else (Arabic, symbols) is dropped.
+        onChange={(e) => onChange(normalizeDigits(e.target.value).toLowerCase().replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-{2,}/g, '-'))}
         className="num h-full min-w-0 flex-1 bg-transparent px-3 text-sm focus:outline-none"
         spellCheck={false}
         autoCapitalize="off"

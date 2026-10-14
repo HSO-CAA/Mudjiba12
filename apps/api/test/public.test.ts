@@ -79,9 +79,9 @@ describe('public portfolio data', () => {
     expect(visible.previews.map((v) => v.id)).toEqual([ids.readyVideo, ids.secondReady]);
     const preview = visible.previews[0]!;
     expect(preview).toMatchObject({ width: 180, height: 320, aspect: 0.5625, featured: false, plays: 0 });
-    expect(preview.url).toMatch(/\/video\.mp4$/);
-    expect(preview.previewUrl).toMatch(/\/preview\.mp4$/);
-    expect(preview.posterUrl).toMatch(/\/poster\.jpg$/);
+    expect(preview.url).toMatch(/\/video\.mp4\?v=[0-9a-z]+$/);
+    expect(preview.previewUrl).toMatch(/\/preview\.mp4\?v=[0-9a-z]+$/);
+    expect(preview.posterUrl).toMatch(/\/poster\.jpg\?v=[0-9a-z]+$/);
     expect(preview).not.toHaveProperty('status');
     expect(preview).not.toHaveProperty('sourceKey');
   });
@@ -220,6 +220,15 @@ describe('inquiries', () => {
     expect(list.items[0]).toMatchObject({ id: created.id, name: 'سارة', planName: activePlan.name, status: 'NEW', source: 'plan' });
     const plans = (await t.app.inject({ method: 'GET', url: '/api/admin/plans', headers: { cookie } })).json() as AdminPlan[];
     expect(plans.find((p) => p.id === activePlan.id)?.inquiryCount).toBe(1);
+  });
+
+  it('accepts the long "place:<slug>" source sent from any place page', async () => {
+    const source = `place:${'a'.repeat(80)}`; // slugs may be up to 80 characters
+    const res = await post({ name: 'مكان طويل', phone: '07700000000', message: 'اريد نفس المحتوى لمكاني', source });
+    expect(res.statusCode).toBe(201);
+    const { id } = res.json() as InquiryCreated;
+    expect((await t.ctx.prisma.inquiry.findUniqueOrThrow({ where: { id } })).source).toBe(source);
+    await t.ctx.prisma.inquiry.delete({ where: { id } });
   });
 
   it('honeypot submissions get a fake 201 and nothing is stored', async () => {

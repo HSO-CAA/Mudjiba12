@@ -54,8 +54,11 @@ describe('config', () => {
     expect(() => loadConfig({ ...base, ADMIN_PATH: '/api' })).toThrow(/ADMIN_PATH/);
     expect(() => loadConfig({ ...base, ADMIN_PATH: '/a b' })).toThrow(/ADMIN_PATH/);
     expect(() => loadConfig({ ...base, STORAGE_DRIVER: 's3' })).toThrow(/S3_BUCKET/);
-    expect(() => loadConfig({ ...base, ADMIN_EMAIL: 'a@b.co' })).toThrow(/ADMIN_PASSWORD/);
     expect(() => loadConfig({ ...base, ADMIN_EMAIL: 'a@b.co', ADMIN_PASSWORD: 'short' })).toThrow(/ADMIN_PASSWORD/);
+  });
+
+  it('keeps starting when the bootstrap password is removed after the first run', () => {
+    expect(loadConfig({ ...base, ADMIN_EMAIL: 'a@b.co' }).admin).toMatchObject({ email: 'a@b.co', password: undefined });
   });
 
   it('documents every variable in .env.example (and the example is valid)', () => {
@@ -63,8 +66,8 @@ describe('config', () => {
     for (const key of ['DATABASE_URL', 'PORT', 'HOST', 'NODE_ENV', 'PUBLIC_URL', 'ADMIN_PATH', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_NAME', 'COOKIE_SECURE', 'TRUST_PROXY', 'STORAGE_DRIVER', 'STORAGE_DIR', 'S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'S3_PUBLIC_URL', 'S3_FORCE_PATH_STYLE', 'FFMPEG_PATH', 'FFPROBE_PATH', 'MAX_VIDEO_MB', 'WEB_DIST', 'ADMIN_DIST', 'LOG_LEVEL']) {
       expect(example, key).toHaveProperty(key);
     }
-    expect(() => loadConfig(example)).toThrow(/ADMIN_PASSWORD/);
     const config = loadConfig({ ...example, ADMIN_PASSWORD: 'a-long-enough-password' });
+    expect(loadConfig(example).admin.password).toBeUndefined();
     expect(config).toMatchObject({ adminPath: '/studio', trustProxy: false, cookieSecure: false });
   });
 

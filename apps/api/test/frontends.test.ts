@@ -102,9 +102,12 @@ describe('public SPA', () => {
   });
 
   it('falls back to the SPA for client routes but not for API, media or missing assets', async () => {
+    const home = await t.app.inject({ method: 'GET', url: '/?utm=ig' });
+    expect(home.statusCode).toBe(200);
     const route = await t.app.inject({ method: 'GET', url: '/about?utm=ig' });
-    expect(route.statusCode).toBe(200);
+    expect(route.statusCode).toBe(404); // not a client route: the SPA renders its 404 page
     expect(route.body).toContain('<div id="root"></div>');
+    expect(route.body).toContain('<meta name="robots" content="noindex">');
     const api = await t.app.inject({ method: 'GET', url: '/api/nope' });
     expect(api.statusCode).toBe(404);
     expect(api.json()).toEqual({ error: { code: 'NOT_FOUND', message: expect.any(String) } });

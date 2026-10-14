@@ -41,7 +41,7 @@ async function decoderAppliesOrientation(tools: MediaTools, file: string): Promi
   try {
     const { stdout } = await run(
       tools.ffprobe,
-      ['-v', 'error', '-select_streams', 'v:0', '-show_frames', '-read_intervals', '%+#1', '-of', 'json', file],
+      ['-v', 'error', '-protocol_whitelist', 'file', '-select_streams', 'v:0', '-show_frames', '-read_intervals', '%+#1', '-of', 'json', file],
       { timeoutMs: 30_000 },
     );
     const data = JSON.parse(stdout) as { frames?: { side_data_list?: { side_data_type?: string }[] }[] };
@@ -119,6 +119,8 @@ async function convertToWebp(
     tools.ffmpeg,
     [
       '-hide_banner', '-nostdin', '-loglevel', 'error', '-y',
+      // Decoder-side cap too, in case a header under-reports the real frame size (decompression bombs).
+      '-protocol_whitelist', 'file', '-max_pixels', String(MAX_INPUT_PIXELS),
       '-i', input,
       '-map_metadata', '-1',
       '-vf', filters.join(','),

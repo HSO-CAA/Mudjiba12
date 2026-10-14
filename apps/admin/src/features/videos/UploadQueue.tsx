@@ -106,7 +106,7 @@ export function UploadRow({ item, compact = false, liveStatus }: { item: UploadI
             <Play />
           </IconButton>
         )}
-        {item.phase === 'error' && (
+        {item.phase === 'error' && !item.fatal && (
           <IconButton label="إعادة المحاولة" size="sm" onClick={() => uploads.resume(item.id)} className="text-accent">
             <RotateCcw />
           </IconButton>

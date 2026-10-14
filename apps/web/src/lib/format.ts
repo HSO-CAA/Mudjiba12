@@ -1,20 +1,23 @@
 import type { PlanPeriod } from '@s5y/shared';
 
 /**
- * Digit style for Arabic copy (prices, counters, counts).
- * - `arab` → Arabic-Indic digits (٠١٢٣) with the Arabic thousands separator "٬" — the common Iraqi print style.
- * - `latn` → Western digits (0123).
+ * Digit style for numbers in Arabic copy (prices, counters, counts, years).
+ * The whole site uses ONE system: Western digits with Latin grouping — "750,000 د.ع", "$199", "1,284" —
+ * which is what Iraqi customers read on price tags and in apps (and what the dashboard shows).
+ * Never mix systems: Arabic-Indic digits with the Arabic separator "٬" render like a Latin comma in
+ * many fonts ("٧٥٠,٠٠٠"), so `arab` is only kept as an explicit opt-in.
  * HUD readouts, timecodes and phone numbers always use Latin digits.
  */
 export type Numerals = 'arab' | 'latn';
-export const NUMERALS: Numerals = 'arab';
+export const NUMERALS: Numerals = 'latn';
 
 const nfCache = new Map<string, Intl.NumberFormat>();
 function nf(numerals: Numerals, options: Intl.NumberFormatOptions = {}): Intl.NumberFormat {
   const key = `${numerals}|${JSON.stringify(options)}`;
   let f = nfCache.get(key);
   if (!f) {
-    f = new Intl.NumberFormat(`ar-IQ-u-nu-${numerals}`, options);
+    // `en-US` pins Latin digits with "," grouping and "." decimals on every browser/ICU version.
+    f = new Intl.NumberFormat(numerals === 'latn' ? 'en-US' : 'ar-IQ-u-nu-arab', options);
     nfCache.set(key, f);
   }
   return f;
@@ -24,7 +27,7 @@ export function formatNumber(value: number, numerals: Numerals = NUMERALS): stri
   return nf(numerals, { maximumFractionDigits: 0 }).format(value);
 }
 
-/** Calendar years never get a thousands separator: 2025 → "٢٠٢٥". */
+/** Calendar years never get a thousands separator: 2025 → "2025". */
 export function formatYear(year: number, numerals: Numerals = NUMERALS): string {
   return nf(numerals, { useGrouping: false, maximumFractionDigits: 0 }).format(year);
 }
@@ -40,7 +43,7 @@ export function localizeDigits(text: string, numerals: Numerals = NUMERALS): str
   return text.replace(/\d/g, (d) => String.fromCharCode(0x0660 + Number(d)));
 }
 
-/** Compact Arabic count: 1200 → "١٫٢ ألف", 2_400_000 → "٢٫٤ مليون". */
+/** Compact Arabic count: 12_400 → "12.4 ألف", 2_400_000 → "2.4 مليون". */
 export function formatCompact(value: number, numerals: Numerals = NUMERALS): string {
   const f = nf(numerals, { maximumFractionDigits: 1 });
   if (value >= 1_000_000) return `${f.format(value / 1_000_000)} مليون`;
@@ -60,10 +63,12 @@ export function periodLabel(period: PlanPeriod): string {
 }
 
 export interface FormattedPrice {
-  /** Main amount ("٧٥٠٬٠٠٠") or the on-request label. */
+  /** Main amount ("750,000") or the on-request label. */
   amount: string;
   /** Currency label shown next to the amount; empty when on request. */
   unit: string;
+  /** The whole price for inline text: "750,000 د.ع", "$199", or the on-request label. */
+  text: string;
   onRequest: boolean;
 }
 
@@ -73,10 +78,11 @@ const CURRENCY_LABELS: Record<string, string> = {
 };
 
 export function formatPrice(price: number | null, currency: string): FormattedPrice {
-  if (price === null || !Number.isFinite(price)) return { amount: 'حسب الطلب', unit: '', onRequest: true };
+  if (price === null || !Number.isFinite(price)) return { amount: 'حسب الطلب', unit: '', text: 'حسب الطلب', onRequest: true };
   const code = currency.toUpperCase();
-  if (code === 'USD') return { amount: formatNumber(price, 'latn'), unit: '$', onRequest: false };
-  return { amount: formatNumber(price), unit: CURRENCY_LABELS[code] ?? code, onRequest: false };
+  const amount = formatNumber(price);
+  const unit = CURRENCY_LABELS[code] ?? code;
+  return { amount, unit, text: code === 'USD' ? `$${amount}` : `${amount} ${unit}`, onRequest: false };
 }
 
 /** 7.4 → "0:07", 75 → "1:15" (Latin digits, used in mono badges). */
@@ -106,7 +112,7 @@ export function yearsSince(since: number | null | undefined, now = new Date()): 
   return Math.max(1, now.getFullYear() - since);
 }
 
-/** Arabic count agreement for years: "سنة", "سنتين", "٣ سنوات", "١٢ سنة". */
+/** Arabic count agreement for years: "سنة", "سنتين", "3 سنوات", "12 سنة". */
 export function yearsLabel(years: number): string {
   if (years <= 1) return 'سنة';
   if (years === 2) return 'سنتين';
@@ -114,7 +120,7 @@ export function yearsLabel(years: number): string {
   return `${formatNumber(years)} سنة`;
 }
 
-/** "فيديو واحد", "فيديوين", "٣ فيديوهات", "١٢ فيديو" — Arabic count agreement. */
+/** "فيديو واحد", "فيديوين", "3 فيديوهات", "12 فيديو" — Arabic count agreement. */
 export function videosLabel(count: number): string {
   if (count === 0) return 'لا توجد فيديوهات';
   if (count === 1) return 'فيديو واحد';

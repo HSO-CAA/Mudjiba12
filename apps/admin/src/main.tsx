@@ -37,6 +37,8 @@ function Toasts() {
       dir="rtl"
       theme="dark"
       position={desktop ? 'bottom-left' : 'top-center'}
+      // Raised by <SaveBar> while it is visible, so a toast never sits on top of its "save" button.
+      offset={{ bottom: 'var(--toast-offset-bottom, 24px)' }}
       mobileOffset={{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
       closeButton
       visibleToasts={4}

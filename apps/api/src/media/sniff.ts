@@ -48,7 +48,7 @@ export function imageSize(buf: Buffer, type: ImageType): Size | null {
       case 'jpeg':
         return jpegSize(buf);
       case 'avif':
-        return null;
+        return avifSize(buf);
     }
   } catch {
     return null;
@@ -68,6 +68,19 @@ function webpSize(buf: Buffer): Size | null {
     return { width: (b & 0x3fff) + 1, height: ((b >> 14) & 0x3fff) + 1 };
   }
   return null;
+}
+
+/**
+ * AVIF (HEIF) dimensions from its `ispe` (image spatial extent) properties: `size 'ispe' v/flags width height`.
+ * A grid image has one per tile plus one for the whole canvas, so the largest one is the decoded size.
+ */
+function avifSize(buf: Buffer): Size | null {
+  let best: Size | null = null;
+  for (let i = buf.indexOf('ispe', 4, 'latin1'); i !== -1 && i + 16 <= buf.length; i = buf.indexOf('ispe', i + 4, 'latin1')) {
+    const size = { width: buf.readUInt32BE(i + 8), height: buf.readUInt32BE(i + 12) };
+    if (!best || size.width * size.height > best.width * best.height) best = size;
+  }
+  return best;
 }
 
 function jpegSize(buf: Buffer): Size | null {

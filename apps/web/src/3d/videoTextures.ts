@@ -226,3 +226,12 @@ export function sampleAverageColor(source: HTMLVideoElement | HTMLImageElement, 
     return false;
   }
 }
+
+/** Live shared media (QA / leak checks): decoding <video>s, playing ones and cached posters. */
+export function mediaStats(): { videos: number; playing: number; posters: number } {
+  let playing = 0;
+  videos.forEach((v) => {
+    if (!v.video.paused) playing++;
+  });
+  return { videos: videos.size, playing, posters: posters.size };
+}

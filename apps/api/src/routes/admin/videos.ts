@@ -7,6 +7,7 @@ import type { AppContext } from '../../context.js';
 import { AppError, badRequest, conflict, notFound, payloadTooLarge, unsupportedMediaType } from '../../lib/errors.js';
 import { idParams, idSchema, imageKeySchema, nullableText, parse, z } from '../../lib/validation.js';
 import { looksLikeVideo } from '../../media/sniff.js';
+import { RATE_LIMITS } from '../../plugins/security.js';
 import { EXT_BY_VIDEO_MIME, VIDEO_EXTENSIONS, VIDEO_MIME_BY_EXT, type VideoExt, videoKeys } from '../../media/video.js';
 import { videoWithPlaceInclude } from '../../services/serializers.js';
 
@@ -197,7 +198,7 @@ export async function videoRoutes(app: FastifyInstance, ctx: AppContext): Promis
     });
   });
 
-  app.patch('/videos/:id/upload', { bodyLimit: CHUNK_BODY_LIMIT, logLevel: 'warn' }, async (request) => {
+  app.patch('/videos/:id/upload', { bodyLimit: CHUNK_BODY_LIMIT, logLevel: 'warn', config: { rateLimit: RATE_LIMITS.upload } }, async (request) => {
     const { id } = parse(idParams, request.params);
     const header = request.headers['upload-offset'];
     const offsetRaw = Array.isArray(header) ? header[0] : header;

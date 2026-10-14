@@ -1,3 +1,4 @@
+import { truncate } from '../../lib/sanitize.js';
 import { idSchema, z } from '../../lib/validation.js';
 
 const optionalTrimmed = (v: unknown) => {
@@ -36,7 +37,11 @@ export const inquiryInputSchema = z
         .max(2000, 'الرسالة طويلة، الحد الأقصى 2000 حرف'),
     ),
     planId: z.preprocess(optionalTrimmed, idSchema.optional()),
-    source: z.preprocess(optionalTrimmed, z.string().max(80).optional()),
+    // Free-form metadata ("home", "plan", "place:<slug>" — slugs alone may be 80 chars): never reject a lead over it.
+    source: z.preprocess((v) => {
+      const s = optionalTrimmed(v);
+      return typeof s === 'string' ? truncate(s, 120) : s;
+    }, z.string().optional()),
     website: z.unknown().optional(),
   })
   .superRefine((value, ctx) => {

@@ -23,3 +23,8 @@ export function useIsMobile(): boolean {
 export function useCoarsePointer(): boolean {
   return useMediaQuery('(pointer: coarse)');
 }
+
+/** Side-by-side hero composition (lens left, copy right). Mirrors the `wide:` CSS variant. */
+export function useWideHero(): boolean {
+  return useMediaQuery('(min-width: 768px) and (orientation: landscape)');
+}

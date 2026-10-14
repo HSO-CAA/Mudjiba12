@@ -61,7 +61,8 @@ export default function InquiriesPage() {
   const [tab, setTab] = useState<TabValue>('ALL');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const q = useDebounced(search.trim(), 300);
+  // Phone keyboards type Arabic-Indic digits; stored numbers use Latin ones.
+  const q = useDebounced(normalizeDigits(search.trim()), 300);
   const isDesktop = useIsDesktop();
   const openId = params.get('open');
   const [selected, setSelected] = useState<AdminInquiry | null>(null);
@@ -101,6 +102,11 @@ export default function InquiriesPage() {
     ...INQUIRY_STATUSES.map((s) => ({ value: s, label: INQUIRY_STATUS_LABELS[s], count: counts?.[s] })),
   ];
   const pages = list.data ? Math.max(1, Math.ceil(list.data.total / PAGE_SIZE)) : 1;
+
+  // Deleting/re-filing the last messages of the last page would leave an empty page: step back.
+  useEffect(() => {
+    if (list.data && !list.isPlaceholderData && list.data.items.length === 0 && page > pages) setPage(pages);
+  }, [list.data, list.isPlaceholderData, page, pages]);
 
   return (
     <div>
@@ -419,7 +425,7 @@ function CopyButton({ value }: { value: string }) {
       onClick={() => {
         void navigator.clipboard
           ?.writeText(value)
-          .then(() => toast.success('انسخ'))
+          .then(() => toast.success('تم النسخ'))
           .catch(() => toast.error('ما گدرنا ننسخ'));
       }}
     >

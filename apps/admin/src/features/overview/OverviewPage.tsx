@@ -350,12 +350,13 @@ function StatusMeter({ counts }: { counts: Overview['counts'] }) {
       </div>
       <ul className="mt-3 grid grid-cols-3 gap-2">
         {parts.map((p) => (
-          <li key={p.key} className="rounded-xl bg-white/[0.03] px-3 py-2">
-            <span className="flex items-center gap-1.5 text-[0.6875rem] text-muted">
+          // Column + justify-between keeps the numbers on one line when a label wraps in a narrow card.
+          <li key={p.key} className="flex flex-col justify-between gap-0.5 rounded-xl bg-white/[0.03] px-3 py-2">
+            <span className="flex items-start gap-1.5 text-[0.6875rem] leading-snug text-muted [&_svg]:mt-px [&_svg]:shrink-0">
               {p.icon}
               {p.label}
             </span>
-            <span className="num mt-0.5 block text-base font-semibold text-fg">{formatNumber(p.value)}</span>
+            <span className="num block text-base font-semibold text-fg">{formatNumber(p.value)}</span>
           </li>
         ))}
       </ul>

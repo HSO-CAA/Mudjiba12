@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { animate, useInView, useReducedMotion } from 'motion/react';
 import { formatNumber, NUMERALS, type Numerals } from '../lib/format';
 
-/** Counts up to `value` once visible (Arabic numerals via formatNumber). */
+/** Counts up to `value` once visible (site-wide digit style via formatNumber). */
 export function Counter({ value, className, numerals = NUMERALS }: { value: number; className?: string; numerals?: Numerals }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '0px 0px -15% 0px' });

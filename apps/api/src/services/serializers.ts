@@ -66,6 +66,15 @@ export class Serializer {
     return key ? this.storage.url(key) : null;
   }
 
+  /**
+   * Video files keep fixed keys across reprocessing while /media is served `immutable`,
+   * so their URLs carry a version derived from the row's last update to bust caches.
+   */
+  private videoUrl(key: string | null | undefined, v: Video): string | null {
+    const url = this.url(key);
+    return url ? `${url}${url.includes('?') ? '&' : '?'}v=${v.updatedAt.getTime().toString(36)}` : null;
+  }
+
   user(u: User): AdminUser {
     return { id: u.id, email: u.email, name: u.name, role: u.role, lastLoginAt: u.lastLoginAt ? iso(u.lastLoginAt) : null };
   }
@@ -83,10 +92,10 @@ export class Serializer {
       mimeType: v.mimeType,
       sizeBytes: Number(v.sizeBytes),
       uploadedBytes: Number(v.uploadedBytes),
-      url: this.url(playableKey),
-      previewUrl: this.url(v.previewKey),
+      url: this.videoUrl(playableKey, v),
+      previewUrl: this.videoUrl(v.previewKey, v),
       posterKey: v.posterKey,
-      posterUrl: this.url(v.posterKey),
+      posterUrl: this.videoUrl(v.posterKey, v),
       durationSec: v.durationSec,
       width: v.width,
       height: v.height,
@@ -109,9 +118,9 @@ export class Serializer {
       placeId: v.placeId,
       title: v.title,
       description: v.description,
-      url: this.storage.url(v.fileKey ?? v.sourceKey ?? ''),
-      previewUrl: this.url(v.previewKey),
-      posterUrl: this.url(v.posterKey),
+      url: this.videoUrl(v.fileKey ?? v.sourceKey, v) ?? '',
+      previewUrl: this.videoUrl(v.previewKey, v),
+      posterUrl: this.videoUrl(v.posterKey, v),
       durationSec: v.durationSec,
       width: v.width,
       height: v.height,

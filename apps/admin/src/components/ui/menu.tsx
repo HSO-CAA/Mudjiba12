@@ -39,6 +39,12 @@ export function Menu({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpen(false);
+        // Keyboard users continue from the button that opened the menu, not from the top of the page.
+        rootRef.current?.querySelector<HTMLElement>('[aria-haspopup="menu"]')?.focus();
+        return;
+      }
+      if (event.key === 'Tab') {
+        setOpen(false);
         return;
       }
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;

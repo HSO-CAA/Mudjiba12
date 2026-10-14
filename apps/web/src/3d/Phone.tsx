@@ -135,7 +135,8 @@ export function Phone({
     }
     const s = spill.current;
     const now = state.clock.elapsedTime;
-    if (media.source && now - s.last > 0.25) {
+    // the spill colour only feeds the area light — skip the (GPU→CPU) frame read-back when there is none
+    if (areaLight && media.source && now - s.last > 0.25) {
       s.last = now;
       if (sampleAverageColor(media.source, s.target)) {
         // keep the spill saturated but never muddy

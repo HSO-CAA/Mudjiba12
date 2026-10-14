@@ -182,8 +182,10 @@ function PlaceCard({ place, handle, dragging }: { place: AdminPlace; handle: Rea
         <div className="flex min-w-0 flex-1 items-center gap-3 text-xs text-muted">
           <span className="inline-flex items-center gap-1" title="الفيديوهات الجاهزة / الكل">
             <Clapperboard className="size-3.5" aria-hidden />
-            <span className="num tabular text-fg-2">{formatNumber(place.readyCount)}</span>
-            {place.videoCount !== place.readyCount && <span className="num tabular">/ {formatNumber(place.videoCount)}</span>}
+            <span className="num tabular" dir="ltr">
+              <span className="text-fg-2">{formatNumber(place.readyCount)}</span>
+              {place.videoCount !== place.readyCount && ` / ${formatNumber(place.videoCount)}`}
+            </span>
             <span>فيديو</span>
           </span>
           {place.year && (

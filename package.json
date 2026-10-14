@@ -15,11 +15,12 @@
     "build": "npm run build -w @s5y/web && npm run build -w @s5y/admin && npm run build -w @s5y/api",
     "start": "npm run start -w @s5y/api",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test -w @s5y/api",
-    "db:migrate": "npm run db:migrate -w @s5y/api",
+    "test": "npm run test -w @s5y/api --",
+    "db:migrate": "npm run db:migrate -w @s5y/api --",
     "db:deploy": "npm run db:deploy -w @s5y/api",
-    "db:seed": "npm run db:seed -w @s5y/api",
-    "create-admin": "npm run create-admin -w @s5y/api"
+    "db:seed": "npm run db:seed -w @s5y/api --",
+    "create-admin": "npm run create-admin -w @s5y/api --",
+    "create-admin:prod": "npm run create-admin:prod -w @s5y/api --"
   },
   "devDependencies": {
     "concurrently": "^9.2.5",

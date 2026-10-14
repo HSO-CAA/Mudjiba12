@@ -6,7 +6,7 @@ import type { AdminPlan, PlanInput, PlanPeriod } from '@s5y/shared';
 import { ApiError } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { api } from '../../lib/endpoints';
-import { CURRENCIES, normalizeDigits, PERIOD_LABELS } from '../../lib/format';
+import { CURRENCIES, formatPrice, normalizeDigits, PERIOD_LABELS } from '../../lib/format';
 import { qk } from '../../lib/query';
 import { Button, IconButton } from '../../components/ui/button';
 import { useConfirm } from '../../components/ui/confirm';
@@ -330,7 +330,6 @@ function toInput(form: PlanForm): PlanInput {
   };
 }
 
-const groupDigits = (raw: string) => (raw ? Number(raw).toLocaleString('en-US') : '');
 
 function PlanEditor({ plan, template, open, onClose }: { plan: AdminPlan | null; template: AdminPlan | null; open: boolean; onClose: () => void }) {
   const { create, update } = usePlanMutations();
@@ -346,7 +345,17 @@ function PlanEditor({ plan, template, open, onClose }: { plan: AdminPlan | null;
     setErrors({});
   }, [open, plan, template]);
 
-  const set = <K extends keyof PlanForm>(key: K, value: PlanForm[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const set = <K extends keyof PlanForm>(key: K, value: PlanForm[K]) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    // Fixing a field clears its error (choosing «حسب الطلب» also answers the price error).
+    const field = key === 'onRequest' ? 'price' : key;
+    setErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
   const saving = create.isPending || update.isPending;
 
   const addFeature = () => {
@@ -434,7 +443,7 @@ function PlanEditor({ plan, template, open, onClose }: { plan: AdminPlan | null;
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
-            <Field label="السعر" error={errors.price} hint={form.onRequest ? 'راح يطلع «حسب الطلب» بدل السعر.' : form.price ? `${groupDigits(form.price)} ${form.currency}` : undefined}>
+            <Field label="السعر" error={errors.price} hint={form.onRequest ? 'راح يطلع «حسب الطلب» بدل السعر.' : form.price ? formatPrice(Number(form.price), form.currency).text : undefined}>
               <Input
                 value={form.onRequest ? '' : form.price}
                 onChange={(e) => set('price', normalizeDigits(e.target.value).replace(/\D/g, '').slice(0, 10))}
@@ -449,7 +458,7 @@ function PlanEditor({ plan, template, open, onClose }: { plan: AdminPlan | null;
               <Select value={form.currency} onChange={(e) => set('currency', e.target.value)}>
                 {CURRENCIES.map((c) => (
                   <option key={c.code} value={c.code}>
-                    {c.label} ({c.code})
+                    {c.label}
                   </option>
                 ))}
               </Select>

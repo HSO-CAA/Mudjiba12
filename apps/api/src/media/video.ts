@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 import { randomId } from '../lib/crypto.js';
+import { cleanString, truncate } from '../lib/sanitize.js';
 import type { StorageDriver } from '../storage/types.js';
 import { AbortedError, FfmpegError, type MediaTools, type ProbeResult, probe, run, stderrSummary } from './ffmpeg.js';
 import type { Log } from './queue.js';
@@ -46,7 +47,8 @@ export interface VideoProcessorDeps {
 /** An expected processing failure with a user-facing Arabic reason. */
 class MediaJobError extends Error {}
 
-const FFMPEG_BASE = ['-hide_banner', '-nostdin', '-loglevel', 'error', '-y'];
+// Inputs are local files only: ffmpeg may never follow a URL/playlist reference found inside an upload.
+const FFMPEG_BASE = ['-hide_banner', '-nostdin', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file'];
 const HDR_TRANSFERS = new Set(['smpte2084', 'arib-std-b67']);
 const MAX_LONG_SIDE = 1920;
 const PREVIEW_SECONDS = 6;
@@ -265,7 +267,7 @@ export async function processVideo(deps: VideoProcessorDeps, videoId: string, si
           : 'تعذّرت معالجة الفيديو بسبب خطأ غير متوقع';
     log.warn({ videoId, err }, 'video processing failed');
     await prisma.video
-      .updateMany({ where: { id: videoId, status: 'PROCESSING' }, data: { status: 'FAILED', processingError: reason.slice(0, 500) } })
+      .updateMany({ where: { id: videoId, status: 'PROCESSING' }, data: { status: 'FAILED', processingError: truncate(cleanString(reason), 500) } })
       .catch(() => undefined);
   } finally {
     await fs.rm(jobDir, { recursive: true, force: true }).catch(() => undefined);

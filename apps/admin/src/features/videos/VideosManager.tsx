@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { CloudUpload, Film, Info, Upload } from 'lucide-react';
 import type { AdminPlaceDetail, AdminVideo } from '@s5y/shared';
 import { cn } from '../../lib/cn';
+import { formatVideoCount } from '../../lib/format';
 import { VIDEO_ACCEPT } from '../../lib/media';
 import { uploads } from '../../lib/uploads';
 import { Button } from '../../components/ui/button';
@@ -141,9 +142,25 @@ export function VideosManager({ place }: { place: AdminPlaceDetail }) {
 
   const addFiles = (files: File[]) => {
     const added = uploads.add(place.id, files);
-    if (added > 0) toast.message(`بدأ رفع ${added === 1 ? 'فيديو واحد' : added === 2 ? 'فيديوين' : `${added} فيديوهات`}`, { description: 'تگدر تكمل شغلك، الرفع يستمر بالخلفية.' });
+    if (added > 0) toast.message(`بدأ رفع ${formatVideoCount(added)}`, { description: 'تگدر تكمل شغلك، الرفع يستمر بالخلفية.' });
   };
   const draggingFiles = useWindowFileDrag(addFiles);
+
+  // On a phone the queue sits below the banner: bring it into view when new files are added.
+  const queueRef = useRef<HTMLDivElement>(null);
+  const queued = useRef(queue.length);
+  useEffect(() => {
+    const grew = queue.length > queued.current;
+    queued.current = queue.length;
+    if (!grew) return;
+    const el = queueRef.current;
+    if (!el) return;
+    const { top, bottom } = el.getBoundingClientRect();
+    if (top < 0 || bottom > window.innerHeight) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    }
+  }, [queue.length]);
   const videos = place.videos;
   const featured = videos.filter((v) => v.featured).length;
 
@@ -202,31 +219,33 @@ export function VideosManager({ place }: { place: AdminPlaceDetail }) {
       )}
 
       {queue.length > 0 && (
-        <Card>
-          <div className="flex items-center justify-between gap-3 px-4 pt-3.5 sm:px-5">
-            <h3 className="text-sm font-semibold">
-              قائمة الرفع{' '}
-              {summary.pending > 0 && (
-                <span className="text-xs font-normal text-muted">
-                  ·{' '}
-                  <span className="num" dir="ltr">
-                    {Math.floor(summary.progress * 100)}%
+        <div ref={queueRef} className="scroll-mt-20">
+          <Card>
+            <div className="flex items-center justify-between gap-3 px-4 pt-3.5 sm:px-5">
+              <h3 className="text-sm font-semibold">
+                قائمة الرفع{' '}
+                {summary.pending > 0 && (
+                  <span className="text-xs font-normal text-muted">
+                    ·{' '}
+                    <span className="num" dir="ltr">
+                      {Math.floor(summary.progress * 100)}%
+                    </span>
                   </span>
-                </span>
+                )}
+              </h3>
+              {summary.done > 0 && (
+                <button type="button" onClick={() => uploads.clearFinished(place.id)} className="text-xs text-muted hover:text-fg">
+                  إخفاء المكتملة
+                </button>
               )}
-            </h3>
-            {summary.done > 0 && (
-              <button type="button" onClick={() => uploads.clearFinished(place.id)} className="text-xs text-muted hover:text-fg">
-                إخفاء المكتملة
-              </button>
-            )}
-          </div>
-          <ul className="divide-y divide-line px-4 pb-1 sm:px-5" aria-live="polite">
-            {queue.map((item) => (
-              <UploadRow key={item.id} item={item} liveStatus={videos.find((v) => v.id === item.videoId)?.status} />
-            ))}
-          </ul>
-        </Card>
+            </div>
+            <ul className="divide-y divide-line px-4 pb-1 sm:px-5" aria-live="polite">
+              {queue.map((item) => (
+                <UploadRow key={item.id} item={item} liveStatus={videos.find((v) => v.id === item.videoId)?.status} />
+              ))}
+            </ul>
+          </Card>
+        </div>
       )}
 
       {videos.length > 0 && (

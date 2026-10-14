@@ -3,7 +3,7 @@ import type { PublicVideo } from '@s5y/shared';
 import { useBootTask } from '../app/loading';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { detectQualityTier, hasWebGL, isQualityForced } from '../lib/device';
-import { useIsMobile, useReducedMotion } from '../hooks/useMediaQuery';
+import { useReducedMotion, useWideHero } from '../hooks/useMediaQuery';
 
 const HeroScene = lazy(() => import('../3d/HeroScene'));
 
@@ -21,7 +21,7 @@ export function HeroStage({ videos, accent, mark, active }: Props) {
   const [ready, setReady] = useState(false);
   const tier = useMemo(() => detectQualityTier(), []);
   const lockTier = useMemo(() => isQualityForced(), []);
-  const compact = useIsMobile();
+  const compact = !useWideHero();
   const reduced = useReducedMotion();
   const useGL = webgl && !failed;
 
@@ -62,7 +62,7 @@ export function HeroFallback({ videos, accent }: { videos: PublicVideo[]; accent
     <div className="absolute inset-0 overflow-hidden bg-bg" aria-hidden="true">
       <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_35%_55%,color-mix(in_oklab,var(--accent)_22%,transparent),transparent_70%)]" />
       <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg to-transparent" />
-      <div className="absolute inset-0 flex items-center justify-center [perspective:1400px] md:justify-start md:ps-[8%]">
+      <div className="absolute inset-0 flex items-center justify-center [perspective:1400px] wide:justify-start wide:ps-[8%]">
         <div className="relative flex items-center gap-3 [transform-style:preserve-3d] sm:gap-5" style={{ transform: 'rotateX(6deg)' }}>
           {slots.map((v, i) => {
             const offset = i - 2;
@@ -86,7 +86,7 @@ export function HeroFallback({ videos, accent }: { videos: PublicVideo[]; accent
         </div>
       </div>
       {/* CSS lens */}
-      <div className="absolute left-1/2 top-[44%] size-[min(42vw,300px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_50%_50%,#0c0b16_0%,#16122a_38%,#050507_52%,#1a1a1d_53%,#0d0d0f_66%,var(--accent)_67%,#0d0d0f_69%,#151517_80%,#070708_100%)] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95),inset_0_0_30px_rgba(255,255,255,0.06)] md:left-[30%]">
+      <div className="absolute left-1/2 top-[44%] size-[min(42vw,300px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_50%_50%,#0c0b16_0%,#16122a_38%,#050507_52%,#1a1a1d_53%,#0d0d0f_66%,var(--accent)_67%,#0d0d0f_69%,#151517_80%,#070708_100%)] shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95),inset_0_0_30px_rgba(255,255,255,0.06)] wide:left-[30%]">
         <span className="absolute left-[30%] top-[28%] h-[10%] w-[18%] rotate-[-30deg] rounded-full bg-white/25 blur-[6px]" />
       </div>
     </div>

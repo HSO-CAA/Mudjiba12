@@ -28,6 +28,12 @@
   --breakpoint-xs: 26rem;
 }
 
+/* Side-by-side hero (lens left, copy right): landscape screens from 768px. Portrait tablets keep the stacked
+   phone composition so the copy never sits on top of the lens. Mirrors `useWideHero()` in JS. */
+@custom-variant wide (@media (min-width: 768px) and (orientation: landscape));
+/* Phones held sideways: the hero type scales with the height and HUD text steps aside. */
+@custom-variant short (@media (orientation: landscape) and (max-height: 540px));
+
 /* Runtime accent (site.brand.accent) — set on :root by the app. */
 @theme inline {
   --color-accent: var(--accent);

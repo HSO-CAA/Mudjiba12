@@ -1,6 +1,7 @@
 import type { PrismaClient, Session, User } from '@prisma/client';
 import { hashPassword, newSessionToken, sha256Hex, verifyAgainstDummy, verifyPassword } from '../lib/crypto.js';
 import { AppError } from '../lib/errors.js';
+import { cleanString, truncate } from '../lib/sanitize.js';
 
 export const SESSION_COOKIE = 's5y_sid';
 export const SESSION_TTL_MS = 30 * 24 * 3600_000;
@@ -25,12 +26,26 @@ const lockedError = (until: Date): AppError =>
     retryAfterSec: Math.max(1, Math.ceil((until.getTime() - Date.now()) / 1000)),
   });
 
+const sessionData = (token: string, userId: string, expiresAt: Date, meta: SessionMeta) => ({
+  tokenHash: sha256Hex(token),
+  userId,
+  expiresAt,
+  ip: meta.ip ? truncate(cleanString(meta.ip), 64) : null,
+  userAgent: meta.userAgent ? truncate(cleanString(meta.userAgent), 512) : null,
+});
+
 const invalidCredentials = (): AppError => new AppError(401, 'UNAUTHORIZED', 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
 
 export class AuthService {
   constructor(private readonly prisma: PrismaClient) {}
 
-  /** Verifies credentials with lockout + timing-safe behaviour and opens a new session. */
+  /**
+   * Verifies credentials with lockout + timing-safe behaviour and opens a new session.
+   *
+   * Every attempt first *reserves* one of the MAX_FAILED_LOGINS slots with an atomic increment, and only then
+   * checks the password. A read-modify-write counter let parallel requests all read the same value: 200
+   * concurrent wrong guesses only counted as a handful of failures and never locked the account.
+   */
   async login(email: string, password: string, meta: SessionMeta): Promise<{ user: User; token: string; expiresAt: Date }> {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -44,15 +59,27 @@ export class AuthService {
       throw lockedError(user.lockedUntil);
     }
 
+    // Atomic "UPDATE … WHERE not locked RETURNING": a lock set by a concurrent request is honoured too.
+    const reserved = await this.prisma.user
+      .update({
+        where: { id: user.id, OR: [{ lockedUntil: null }, { lockedUntil: { lte: now } }] },
+        data: { failedLogins: { increment: 1 } },
+        select: { failedLogins: true },
+      })
+      .catch((err: unknown) => {
+        if ((err as { code?: string }).code === 'P2025') return null;
+        throw err;
+      });
+    const attempt = reserved?.failedLogins ?? Number.POSITIVE_INFINITY;
+    if (attempt > MAX_FAILED_LOGINS) {
+      // Concurrent attempts already used every slot: lock (if the request that hit the limit hasn't yet).
+      await verifyAgainstDummy(password);
+      throw lockedError(await this.lock(user.id, now, false));
+    }
+
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) {
-      const failures = user.failedLogins + 1;
-      if (failures >= MAX_FAILED_LOGINS) {
-        const lockedUntil = new Date(now.getTime() + LOCK_MS);
-        await this.prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil } });
-        throw lockedError(lockedUntil);
-      }
-      await this.prisma.user.update({ where: { id: user.id }, data: { failedLogins: failures } });
+      if (attempt >= MAX_FAILED_LOGINS) throw lockedError(await this.lock(user.id, now, true));
       throw invalidCredentials();
     }
 
@@ -64,18 +91,22 @@ export class AuthService {
     return { user: updated, token, expiresAt };
   }
 
+  /** Locks the account for LOCK_MS and resets the counter. `force: false` keeps a lock that is already running. */
+  private async lock(userId: string, now: Date, force: boolean): Promise<Date> {
+    const lockedUntil = new Date(now.getTime() + LOCK_MS);
+    const { count } = await this.prisma.user.updateMany({
+      where: { id: userId, ...(force ? {} : { OR: [{ lockedUntil: null }, { lockedUntil: { lte: now } }] }) },
+      data: { failedLogins: 0, lockedUntil },
+    });
+    if (count > 0) return lockedUntil;
+    const current = await this.prisma.user.findUnique({ where: { id: userId }, select: { lockedUntil: true } });
+    return current?.lockedUntil ?? lockedUntil;
+  }
+
   async createSession(userId: string, meta: SessionMeta): Promise<{ token: string; expiresAt: Date }> {
     const token = newSessionToken();
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-    await this.prisma.session.create({
-      data: {
-        tokenHash: sha256Hex(token),
-        userId,
-        expiresAt,
-        ip: meta.ip?.slice(0, 64) ?? null,
-        userAgent: meta.userAgent?.slice(0, 512) ?? null,
-      },
-    });
+    await this.prisma.session.create({ data: sessionData(token, userId, expiresAt, meta) });
     return { token, expiresAt };
   }
 
@@ -106,15 +137,22 @@ export class AuthService {
     await this.prisma.session.deleteMany({ where: { tokenHash: sha256Hex(token) } });
   }
 
-  /** Changes the password and revokes every other session of the user. Returns false when `current` is wrong. */
-  async changePassword(user: User, keepSessionId: string, current: string, next: string): Promise<boolean> {
-    if (!(await verifyPassword(current, user.passwordHash))) return false;
+  /**
+   * Changes the password and signs out *every* session of the user, including the current one, which is
+   * replaced by a fresh session (new token) so a stolen cookie doesn't survive a password change.
+   * Returns null when `current` is wrong.
+   */
+  async changePassword(user: User, current: string, next: string, meta: SessionMeta): Promise<{ token: string; expiresAt: Date } | null> {
+    if (!(await verifyPassword(current, user.passwordHash))) return null;
     const passwordHash = await hashPassword(next);
+    const token = newSessionToken();
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: user.id }, data: { passwordHash, failedLogins: 0, lockedUntil: null } }),
-      this.prisma.session.deleteMany({ where: { userId: user.id, id: { not: keepSessionId } } }),
+      this.prisma.session.deleteMany({ where: { userId: user.id } }),
+      this.prisma.session.create({ data: sessionData(token, user.id, expiresAt, meta) }),
     ]);
-    return true;
+    return { token, expiresAt };
   }
 
   async purgeExpired(): Promise<number> {
