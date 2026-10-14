@@ -3,6 +3,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.local.example
 # runtime media storage (never the source folder apps/api/src/storage)
 /storage/
 /apps/api/storage/

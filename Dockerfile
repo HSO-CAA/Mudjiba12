@@ -66,6 +66,7 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+COPY --from=build /app/apps/api/scripts ./apps/api/scripts
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/apps/admin/dist ./apps/admin/dist
 COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

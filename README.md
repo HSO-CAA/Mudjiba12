@@ -43,6 +43,8 @@ npm run dev
 - لوحة التحكم: http://localhost:5174
 - الـ API: http://localhost:4000
 
+تريد تستخدم **Supabase** (قاعدة البيانات والتخزين على الإنترنت)؟ شوف قسم [Supabase](#supabase) تحت — المفاتيح تنحط بملف `.env.local` (مخفي عن git).
+
 تريد تجرب نسخة الإنتاج على جهازك؟ `npm run build` وبعدين `npm start` ← الموقع على http://localhost:4000 ولوحة التحكم على http://localhost:4000/studio
 
 ## النشر على سيرفر (الطريقة الموصى بيها)
@@ -128,6 +130,65 @@ docker compose up -d
 ]
 ```
 
+## Supabase
+
+[Supabase](https://supabase.com) يگدر يشيل عنك شغلتين: **قاعدة البيانات** (بدل PostgreSQL على جهازك أو السيرفر) و**تخزين الفيديوهات والصور** (بدل قرص السيرفر). تگدر تستخدم وحدة منهن أو الثنتين.
+
+### تحتاج 3 أشياء من صفحة مشروعك بـ Supabase
+
+| شنو | وين تلگاه | سري؟ |
+|---|---|---|
+| ① رابط المشروع `SUPABASE_URL` | Project Settings ← Data API ← Project URL. عندك: `https://dkfflmtmggjuttdrrgcs.supabase.co` ✓ | لا، عادي |
+| ② المفتاح السري `SUPABASE_SERVICE_ROLE_KEY` | Project Settings ← **API Keys** ← تبويب «Legacy API Keys» ← `service_role` ← Reveal (يبدأ بـ `eyJ…`). أو تسوي **Secret key** جديد (يبدأ بـ `sb_secret_…`) | ⚠️ **سري جداً** |
+| ③ رابط قاعدة البيانات `DATABASE_URL` | زر **Connect** (فوق بالصفحة) ← **Session pooler** ← انسخ الرابط، وبدّل `[YOUR-PASSWORD]` بكلمة سر قاعدة البيانات | ⚠️ **سري** (بيه كلمة السر) |
+
+- مفتاح **anon** (المفتاح العام اللي عندك) **السيرفر ما يحتاجه** — ما يگدر يرفع ملفات. وإذا حطيته بمكان `SUPABASE_SERVICE_ROLE_KEY` السيرفر يوقف ويگلك بالضبط شنو تحط بداله.
+- كلمة سر قاعدة البيانات هي اللي اخترتها لمن سويت المشروع. نسيتها؟ Project Settings ← Database ← Reset database password (خليها حروف وأرقام بس، بدون رموز مثل `@ # / ?`).
+- استخدم **Session pooler** (بورت `5432`)، مو Transaction pooler (بورت `6543`، ما يمشي وياه تحديث الجداول) ولا Direct connection (يحتاج IPv6 وأغلب الشبكات ما عدها).
+- الـ **bucket** (مكان الفيديوهات والصور) **ينسوى تلقائياً** باسم `media` وبوضع public أول ما يشتغل السيرفر — ما تحتاج تسوي شي بصفحة Storage، ولا تحتاج تضبط CORS.
+
+### على جهازك (ملف `.env.local`)
+
+```bash
+cp -n .env.local.example .env.local  # بجذر المشروع (إذا الملف موجود عندك ما ينكتب فوقه) — افتحه وعبّي المفتاح السري، وشيل # من سطر DATABASE_URL وحط كلمة السر
+npm run db:deploy                    # يسوي جداول قاعدة البيانات على Supabase (مرة وحدة، وبعد كل تحديث للمشروع)
+npm run create-admin -- --email you@example.com --password "كلمة-سر-قوية"   # حساب المدير (أول مرة)
+npm run dev                          # أو نسخة الإنتاج: npm run build && npm start
+```
+
+- ملف `.env.local` **مخفي عن git** (ما ينرفع على GitHub أبداً)، فهو المكان الصح للمفاتيح على جهازك. السيرفر يقرا الملفات بهالترتيب والأول يغلب: `apps/api/.env.local` ← `.env.local` (جذر المشروع) ← `apps/api/.env`.
+- تتأكد إنه اشتغل: بسجل السيرفر تطلع `media storage: Supabase Storage` و`"storage":"supabase"`. وإذا بس الرابط موجود بدون المفتاح السري، يطلع تنبيه والفيديوهات تنحفظ على جهازك.
+
+### على السيرفر (Docker)
+
+بملف `.env` (جنب `docker-compose.yml`) ضيف — ونفس القواعد: هذا الملف ما ينرفع:
+
+```
+SUPABASE_URL=https://dkfflmtmggjuttdrrgcs.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=المفتاح-السري
+SUPABASE_STORAGE_BUCKET=media
+# اختياري: قاعدة بيانات Supabase بدل اللي على السيرفر
+DATABASE_URL=رابط-Session-pooler-مع-كلمة-السر
+```
+
+وبعدين `docker compose up -d` (أو `docker compose --profile https up -d`). الجداول تتحدث تلقائياً عند التشغيل.
+(إذا حطيت `DATABASE_URL`، حاوية قاعدة البيانات المحلية `db` تبقى شغّالة بس ما تنستخدم — خلّي `POSTGRES_PASSWORD` مثل ما هو.)
+
+الفيديو الأصلي اللي ترفعه يبقى على السيرفر لحد ما يتجهز وبعدين ينمسح: السيرفر يرفع لـ Supabase بس النسخة الجاهزة للويب والمعاينة والغلاف. هيچ يوفر نت، وفيديوهات الموبايل الكبيرة تمر حتى لو أكبر من حد الخطة.
+
+### حدود الخطة المجانية (Free)
+
+- **50MB لكل ملف**: الفيديو *بعد* التجهيز لازم يكون أقل من 50MB (تقريباً دقيقة ونص لدقيقتين بدقة 1080p، حسب الفيديو). السيرفر يحاول يصغّره تلقائياً، وإذا بقى أكبر يطلع جنبه «فشل» ويگلك السبب — قصّره، أو رقّي الخطة وكبّر الحد من Storage ← Settings، وبعدين اضغط «إعادة المعالجة».
+- **المشروع يتوقف (Paused)** إذا ما صار عليه نشاط حوالي أسبوع: الفيديوهات ما تطلع وقاعدة البيانات توقف. الحل: ادخل Supabase واضغط **Restore** على المشروع.
+- المساحة وكمية النقل الشهرية محدودة — تابعها من صفحة **Usage** بـ Supabase.
+
+### قواعد الأمان ⚠️
+
+- `SUPABASE_SERVICE_ROLE_KEY` وكلمة سر قاعدة البيانات **أسرار**: لا ترفعهن على GitHub (المشروع **عام** والكل يگدر يشوفه)، لا تحطهن بكود الموقع أو لوحة التحكم، ولا ترسلهن لأحد أو تنشرهن بصورة شاشة.
+- مكانهن بس: `.env.local` على جهازك و`.env` على السيرفر (الثنين مخفيين عن git).
+- إذا انكشف المفتاح: غيّره فوراً من Project Settings ← API Keys، وغيّر كلمة سر قاعدة البيانات من Project Settings ← Database، وحدّث `.env`.
+- الموقع نفسه ما يحچي ويا Supabase مباشرة — كلشي يمر من السيرفر، وجداول قاعدة البيانات مقفولة عن الـ API العام مال Supabase (Row Level Security).
+
 ## استخدام لوحة التحكم
 
 1. **الأماكن** ← «مكان جديد»: الاسم، والتصنيف، والموقع، ولون المكان، وصورة الغلاف واللوگو.
@@ -145,6 +206,7 @@ docker compose up -d
 - حماية CSRF، وCSP صارم، وHelmet.
 - لوحة التحكم مخفية: ما موجودة بـ robots.txt ولا بالـ sitemap ولا بكود الموقع، ومعلّمة `noindex`.
 - السيرفر يشتغل بمستخدم عادي (مو root) داخل الحاوية.
+- الأسرار (كلمات السر ومفتاح Supabase السري) بس بملفات `.env` / `.env.local` المخفية عن git — أبداً مو بالكود ولا على GitHub.
 - لإعادة تعيين كلمة السر من السيرفر (يفتح الحساب إذا انقفل، ويطلّع كل الجلسات):
   ```bash
   docker compose exec app node dist/scripts/create-admin.js --email you@example.com --password "NewStrongPass"
@@ -163,6 +225,11 @@ docker compose up -d
 | عدّلت `.env` وما تغيّر شي | لازم `docker compose up -d` مو `restart`. |
 | HTTPS ما يشتغل | تأكد الدومين موجّه على IP السيرفر والبورتات 80 و443 مفتوحة، وشوف `docker compose logs caddy`. |
 | الفيديوهات ما تشتغل بمشهد الـ 3D (مع R2/S3) | فعّل CORS على الـ bucket (فوق). |
+| يطلع `this is the public anon key` | حطيت مفتاح anon بمكان المفتاح السري. انسخ `service_role` (أو Secret key) من Project Settings ← API Keys. |
+| يطلع `still contains a placeholder like [YOUR-PASSWORD]` | بدّل `[YOUR-PASSWORD]` (و`[REGION]` إذا موجود) برابط قاعدة البيانات بالقيمة الحقيقية. |
+| `npm run db:deploy` يطلع `P1001` (Can't reach database) | استخدم رابط **Session pooler** (بورت 5432) وتأكد من كلمة السر، وإن المشروع مو موقوف. |
+| يطلع `cannot reach Supabase Storage` أو الفيديوهات ما تطلع | يمكن مشروع Supabase موقوف (Paused): ادخل Supabase واضغط Restore. وتأكد من `SUPABASE_URL`. |
+| فيديو «فشل» وجنبه «أكبر من الحد المسموح بخطة Supabase» | قصّر الفيديو أو رقّي الخطة، وبعدين «إعادة المعالجة». |
 | مساحة السيرفر قربت تخلص | `docker system df` و`docker image prune -f`. (اللوگات تتدوّر تلقائياً وما تكبر.) |
 
 فحص سريع لكل شي (للمطوّر): `SMOKE_EMAIL=you@example.com SMOKE_PASSWORD='…' SMOKE_ADMIN_PATH=/studio-k39x node deploy/smoke-test.mjs`

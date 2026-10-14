@@ -25,7 +25,7 @@ Types live in `packages/shared/src/index.d.ts` (`@s5y/shared`) — import them w
 - JSON everywhere (`Content-Type: application/json`) except uploads.
 - Errors: HTTP status + body `ApiErrorBody` → `{ "error": { "code", "message", "details?" } }`. `message` is short user-facing **Arabic**. Validation errors use `VALIDATION_ERROR` with zod issues in `details`.
 - Dates are ISO strings. `BigInt` columns are sent as numbers.
-- Media URLs are always ready to use: local storage → `/media/<key>`; S3 → `${S3_PUBLIC_URL}/<key>`.
+- Media URLs are always ready to use: local storage → `/media/<key>`; S3 → `${S3_PUBLIC_URL}/<key>`; Supabase → `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/<key>`. With a remote driver (S3/Supabase) and ffmpeg, a video's `source.<ext>` stays on the server's disk until it is processed, so `url` of a `PROCESSING`/`FAILED` video is `/media/videos/<id>/source.<ext>` while READY files are remote. Clients must accept both relative and absolute URLs (cross-origin media needs `crossOrigin="anonymous"`; Supabase serves public objects with `Access-Control-Allow-Origin: *`).
 - Admin requests: cookie `s5y_sid` (httpOnly, `SameSite=Strict`, `Secure` in production, 30 days, sliding). **Every `/api/admin/*` request except `GET`s must send header `X-S5Y-Admin: 1`** (CSRF defense-in-depth; the API rejects with 403 otherwise). The admin API client always sends it.
 - Rate limits: global 600/min/IP; login 10 per 15 min/IP + account lock 15 min after 8 consecutive failures (`ACCOUNT_LOCKED`, 423); inquiries 5 per 10 min/IP; track 120/min/IP. Authenticated uploads (`PATCH /videos/:id/upload` chunks and `POST /uploads/image`) are exempt from the global per-IP bucket and use their own 6000/min bucket per admin session (auth + `X-S5Y-Admin` still required). 429 → `RATE_LIMITED`.
 
@@ -98,6 +98,13 @@ Chunked upload protocol (resumable, works behind proxies with body limits):
 
 Storage keys: `images/<yyyy>/<mm>/<id>.<ext>`, `videos/<videoId>/source.<ext>`, `videos/<videoId>/video.mp4`, `videos/<videoId>/preview.mp4`, `videos/<videoId>/poster.jpg`. Images are re-encoded to WebP (long side ≤ 2400) when ffmpeg is available (GIFs kept as-is).
 
+#### Storage drivers
+- `local` — files under `STORAGE_DIR`, served by the API at `/media/*` (Range, ETag, `immutable`).
+- `s3` — S3 / R2 / MinIO via the AWS SDK; public through `S3_PUBLIC_URL` (bucket policy / CDN, CORS needed for WebGL).
+- `supabase` — Supabase Storage REST API (`${SUPABASE_URL}/storage/v1`) with global `fetch`, headers `apikey` + `Authorization: Bearer <service key>` (legacy `service_role` JWT or `sb_secret_…`). One **public** bucket (`SUPABASE_STORAGE_BUCKET`, default `media`): at boot the API `GET /bucket/{id}` → `POST /bucket {id,name,public:true}` when missing, `PUT /bucket/{id} {public:true}` when private; failures are logged with an actionable message and never stop the site. Uploads `POST /object/{bucket}/{key}` (streamed, `content-length`, `x-upsert: true`, `cache-control: max-age=31536000`) with bounded retries (network errors / 5xx / 429); `HEAD` = exists, authenticated `GET` = download for processing, `DELETE /object/{bucket} {prefixes}` = delete, `POST /object/list/{bucket}` (recursive, paginated) for prefix deletes. "Payload too large" (HTTP 413, or 400 + `statusCode:"413"`) → a stream-copied (remuxed) `video.mp4` is re-encoded once (CRF 22) and re-uploaded; still too large → video `FAILED` with an Arabic reason / image upload `413 PAYLOAD_TOO_LARGE`; rejected keys / unreachable project → video `FAILED` / `502 STORAGE_ERROR` with Arabic text. Free plan: 50 MB per file.
+- Remote drivers + ffmpeg: `videos/<id>/source.<ext>` is kept on the local disk (never uploaded — it is deleted once READY), everything else goes to the bucket; `/media/*` is served from `STORAGE_DIR` whenever local files can exist. Without ffmpeg, sources are uploaded and served as-is.
+- The CSP `img-src`/`media-src` include the remote origin (`S3_PUBLIC_URL` origin or `SUPABASE_URL` origin).
+
 ### Plans (subscription packages)
 | GET | `/api/admin/plans` | — | `AdminPlan[]` |
 | POST | `/api/admin/plans` | `PlanInput` | `201 AdminPlan` |
@@ -116,9 +123,11 @@ Storage keys: `images/<yyyy>/<mm>/<id>.<ext>`, `videos/<videoId>/source.<ext>`, 
 
 ## Environment variables (API)
 
+Env files (API, `create-admin`, `db:seed`, and `db:migrate`/`db:deploy` through `apps/api/scripts/prisma-env.mjs`) are read in this order without overriding variables that are already set: `apps/api/.env.local` → `<repo root>/.env.local` → `apps/api/.env`. All are git-ignored; templates: `apps/api/.env.example`, `/.env.local.example` (Supabase), `/.env.example` (Docker Compose, which passes env explicitly). The test suite ignores `SUPABASE_*`, `S3_*` and `STORAGE_DRIVER` from the environment. No server variable is ever exposed to the Vite apps (no `VITE_` prefix).
+
 | Var | Default | Notes |
 |---|---|---|
-| `DATABASE_URL` | — | PostgreSQL URL (required) |
+| `DATABASE_URL` | — | PostgreSQL URL (required). Supabase: Session pooler string (port 5432). Transaction pooler (6543) → startup warning + `pgbouncer=true` added for the app (migrations need 5432); `[YOUR-PASSWORD]` placeholder → config error |
 | `PORT` / `HOST` | `4000` / `0.0.0.0` | |
 | `NODE_ENV` | `development` | |
 | `PUBLIC_URL` | `http://localhost:4000` | canonical site URL (sitemap, OG tags) |
@@ -126,9 +135,13 @@ Storage keys: `images/<yyyy>/<mm>/<id>.<ext>`, `videos/<videoId>/source.<ext>`, 
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | — | first-run owner account (created only if no user exists) |
 | `COOKIE_SECURE` | `true` in production | set `false` only for plain-HTTP testing |
 | `TRUST_PROXY` | `false` | `true` behind Nginx/Cloudflare/Railway |
-| `STORAGE_DRIVER` | `local` | `local` or `s3` |
-| `STORAGE_DIR` | `./storage` | local driver root (persist this volume!) |
+| `STORAGE_DRIVER` | auto | `local`, `s3` or `supabase`. Unset/empty → `supabase` when `SUPABASE_URL` and a service key are set, else `local`. An explicit value always wins |
+| `STORAGE_DIR` | `./storage` | local driver root (persist this volume!); with s3/supabase: scratch + staged video sources |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL`, `S3_FORCE_PATH_STYLE` | — | S3 / Cloudflare R2 |
+| `SUPABASE_URL` | — | project URL `https://<ref>.supabase.co` (https only, except localhost; trailing slash / `/rest/v1` stripped) |
+| `SUPABASE_SERVICE_ROLE_KEY` (alias `SUPABASE_SECRET_KEY`) | — | **secret** service_role JWT or `sb_secret_…` key. The anon/publishable key is rejected with a clear error, and so is a service_role JWT whose `ref` is another project. Never logged |
+| `SUPABASE_STORAGE_BUCKET` | `media` | lowercase letters, digits, `-` `_` `.` (1–63 chars); created public at boot |
+| `SUPABASE_ANON_KEY` | — | accepted, unused by the server |
 | `FFMPEG_PATH` / `FFPROBE_PATH` | `ffmpeg` / `ffprobe` | auto-detected; processing disabled if missing |
 | `MAX_VIDEO_MB` | `2048` | |
 | `WEB_DIST` / `ADMIN_DIST` | `../web/dist` / `../admin/dist` (relative to `apps/api`) | prod static roots; skipped if missing |

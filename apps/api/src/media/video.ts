@@ -212,6 +212,7 @@ export async function processVideo(deps: VideoProcessorDeps, videoId: string, si
 
       const mainOut = path.join(jobDir, 'video.mp4');
       const main = mainArgs(source.path, mainOut, info, tools);
+      let mode = main.mode;
       try {
         await run(tools.ffmpeg, main.args, { signal, timeoutMs });
       } catch (err) {
@@ -220,9 +221,11 @@ export async function processVideo(deps: VideoProcessorDeps, videoId: string, si
         log.warn({ videoId, reason: stderrSummary(err.stderr) }, 'remux failed, transcoding instead');
         const retry = mainArgs(source.path, mainOut, info, tools, true);
         await run(tools.ffmpeg, retry.args, { signal, timeoutMs });
+        mode = 'transcode';
       }
       const out = await probe(tools, mainOut, signal);
       if (!out.video) throw new MediaJobError('فشل إنتاج ملف الفيديو النهائي');
+      let final = { durationSec: out.durationSec, width: out.video.width, height: out.video.height };
 
       const previewOut = path.join(jobDir, 'preview.mp4');
       await run(tools.ffmpeg, previewArgs(mainOut, previewOut), { signal, timeoutMs: 10 * 60_000 });
@@ -239,7 +242,21 @@ export async function processVideo(deps: VideoProcessorDeps, videoId: string, si
       const hasPoster = generatePoster && (await fileExists(posterOut));
       if (signal.aborted) throw new AbortedError();
 
-      await storage.putFile(keys.file, mainOut, { contentType: 'video/mp4', move: true });
+      try {
+        await storage.putFile(keys.file, mainOut, { contentType: 'video/mp4', move: true });
+      } catch (err) {
+        // A stream-copied phone original keeps its high bitrate; re-encoding (CRF 22, ≤1920) usually shrinks it
+        // enough for a per-file limit such as Supabase Free's 50 MB. Still too large → FAILED with a clear reason.
+        if (!(err instanceof StorageObjectTooLargeError) || mode !== 'remux') throw err;
+        log.warn({ videoId }, 'remuxed video is over the storage per-file limit, transcoding to shrink it');
+        await run(tools.ffmpeg, mainArgs(source.path, mainOut, info, tools, true).args, { signal, timeoutMs });
+        const shrunk = await probe(tools, mainOut, signal);
+        if (!shrunk.video) throw new MediaJobError('فشل إنتاج ملف الفيديو النهائي');
+        final = { durationSec: shrunk.durationSec, width: shrunk.video.width, height: shrunk.video.height };
+        if (signal.aborted) throw new AbortedError();
+        mode = 'transcode';
+        await storage.putFile(keys.file, mainOut, { contentType: 'video/mp4', move: true });
+      }
       await storage.putFile(keys.preview, previewOut, { contentType: 'video/mp4', move: true });
       if (hasPoster) await storage.putFile(keys.poster, posterOut, { contentType: 'image/jpeg', move: true });
 
@@ -253,9 +270,9 @@ export async function processVideo(deps: VideoProcessorDeps, videoId: string, si
           previewKey: keys.preview,
           sourceKey: sourceToDelete ? null : video.sourceKey,
           ...(hasPoster ? { posterKey: keys.poster } : {}),
-          durationSec: out.durationSec,
-          width: out.video.width,
-          height: out.video.height,
+          durationSec: final.durationSec,
+          width: final.width,
+          height: final.height,
         },
       });
       if (updated.count === 0) {
@@ -266,7 +283,7 @@ export async function processVideo(deps: VideoProcessorDeps, videoId: string, si
       }
       if (sourceToDelete) await storage.delete(sourceToDelete).catch(() => undefined);
       log.info(
-        { videoId, mode: main.mode, ms: Date.now() - startedAt, width: out.video.width, height: out.video.height },
+        { videoId, mode, ms: Date.now() - startedAt, width: final.width, height: final.height },
         'video processed',
       );
     } finally {
