@@ -1,4 +1,5 @@
 import type { TrackEvent } from '@s5y/shared';
+import { DEMO } from './demo';
 
 const ENDPOINT = '/api/public/track';
 
@@ -17,6 +18,7 @@ function seen(key: string): boolean {
 const memory = new Set<string>();
 
 function send(event: TrackEvent): void {
+  if (DEMO) return;
   const body = JSON.stringify(event);
   try {
     if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {

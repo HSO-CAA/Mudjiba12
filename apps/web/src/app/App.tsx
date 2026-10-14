@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router';
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { PublicSite } from '@s5y/shared';
@@ -11,6 +11,7 @@ import { Header } from '../components/Header';
 import { Loader } from '../components/Loader';
 import { applyAccent } from '../lib/color';
 import { trackPageview } from '../lib/analytics';
+import { DEMO } from '../lib/demo';
 import HomePage from '../pages/HomePage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { PlayerProvider } from '../player/PlayerProvider';
@@ -19,11 +20,14 @@ import { SmoothScroll, useSmoothScroll } from './SmoothScroll';
 
 const PlacePage = lazy(() => import('../pages/PlacePage'));
 
+/** The static preview lives at an arbitrary URL with no server routing, so it keeps routes in memory. */
+const Router = DEMO ? MemoryRouter : BrowserRouter;
+
 export function App() {
   const [queryClient] = useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <Router>
         <SmoothScroll>
           <ContactIntentProvider>
             <PlayerProvider>
@@ -31,7 +35,7 @@ export function App() {
             </PlayerProvider>
           </ContactIntentProvider>
         </SmoothScroll>
-      </BrowserRouter>
+      </Router>
     </QueryClientProvider>
   );
 }

@@ -12,3 +12,5 @@ dist/
 coverage/
 .vite/
 *.tsbuildinfo
+# static preview build (apps/web/scripts/build-preview.mjs)
+/preview/

@@ -8,6 +8,7 @@ import type {
   PublicPlan,
   PublicSite,
 } from '@s5y/shared';
+import { DEMO, demoSnapshot } from '../lib/demo';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -42,6 +43,7 @@ function isErrorBody(value: unknown): value is ApiErrorBody {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (DEMO) return demoRequest<T>(path, init);
   let res: Response;
   try {
     res = await fetch(path, {
@@ -74,6 +76,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (isErrorBody(data)) throw new ApiError(res.status, String(data.error.code), data.error.message, data.error.details);
     throw new ApiError(res.status, res.status === 404 ? 'NOT_FOUND' : 'INTERNAL_ERROR', GENERIC_MESSAGE);
   }
+  return data as T;
+}
+
+/** Preview build: reads bundled snapshots; form submissions succeed without being sent anywhere. */
+async function demoRequest<T>(path: string, init: RequestInit): Promise<T> {
+  if ((init.method ?? 'GET') !== 'GET') {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    return { ok: true, id: 'preview' } as T;
+  }
+  const file = demoSnapshot(path);
+  const res = file ? await fetch(file, { signal: init.signal }).catch(() => null) : null;
+  const data: unknown = res?.ok ? await res.json().catch(() => null) : null;
+  if (data === null) throw new ApiError(404, 'NOT_FOUND', GENERIC_MESSAGE);
   return data as T;
 }
 
