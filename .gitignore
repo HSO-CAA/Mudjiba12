@@ -3,8 +3,9 @@ dist/
 .env
 .env.*
 !.env.example
-storage/
-apps/api/storage/
+# runtime media storage (never the source folder apps/api/src/storage)
+/storage/
+/apps/api/storage/
 *.log
 .DS_Store
 coverage/
