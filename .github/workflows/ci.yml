@@ -56,12 +56,20 @@ jobs:
         working-directory: apps/api
         run: |
           echo 'CREATE DATABASE s5y_shadow;' | npx prisma db execute --stdin --url "$TEST_DATABASE_URL"
+          set +e
           npx prisma migrate diff \
             --from-migrations prisma/migrations \
             --to-schema-datamodel prisma/schema.prisma \
             --shadow-database-url "postgresql://s5y:s5y@localhost:5432/s5y_shadow" \
-            --exit-code \
-            || { echo "::error::schema.prisma has changes without a migration — run 'npm run db:migrate' and commit prisma/migrations"; exit 1; }
+            --exit-code
+          status=$?
+          set -e
+          # --exit-code: 0 = in sync, 2 = schema differs, anything else = the migrations themselves failed to apply.
+          if [ "$status" -eq 2 ]; then
+            echo "::error::schema.prisma has changes without a migration — run 'npm run db:migrate' and commit prisma/migrations"; exit 1
+          elif [ "$status" -ne 0 ]; then
+            echo "::error::the migrations in prisma/migrations failed to apply to an empty shadow database (see the error above)"; exit 1
+          fi
 
       - name: Test (API)
         run: npm test

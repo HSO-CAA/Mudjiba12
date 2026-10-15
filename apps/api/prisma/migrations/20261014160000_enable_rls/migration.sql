@@ -10,19 +10,27 @@ ALTER TABLE "Plan" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Inquiry" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Setting" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "DailyStat" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
 
--- Defense in depth: drop the Data API grants entirely where those roles exist (Supabase only).
 DO $$
 DECLARE
   api_role text;
+  -- Prisma's history table is absent when migrations are replayed into a shadow database.
+  has_history boolean := to_regclass('"_prisma_migrations"') IS NOT NULL;
 BEGIN
+  IF has_history THEN
+    EXECUTE 'ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY';
+  END IF;
+
+  -- Defense in depth: drop the Data API grants entirely where those roles exist (Supabase only).
   FOREACH api_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = api_role) THEN
       EXECUTE format(
-        'REVOKE ALL ON TABLE "User", "Session", "Place", "Video", "Plan", "Inquiry", "Setting", "DailyStat", "_prisma_migrations" FROM %I',
+        'REVOKE ALL ON TABLE "User", "Session", "Place", "Video", "Plan", "Inquiry", "Setting", "DailyStat" FROM %I',
         api_role
       );
+      IF has_history THEN
+        EXECUTE format('REVOKE ALL ON TABLE "_prisma_migrations" FROM %I', api_role);
+      END IF;
     END IF;
   END LOOP;
 END $$;
