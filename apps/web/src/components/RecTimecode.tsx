@@ -23,10 +23,10 @@ export function RecTimecode({ className = '' }: { className?: string }) {
     return () => cancelAnimationFrame(raf);
   }, [reduced]);
   return (
-    <span className={`hud inline-flex items-center gap-2 ${className}`}>
+    <span className={`hud hud-plate inline-flex items-center gap-2 ${className}`}>
       <span className="rec-dot inline-block size-2 rounded-full bg-rec shadow-[0_0_10px_rgba(255,59,48,0.8)]" aria-hidden="true" />
-      <span className="text-rec">REC</span>
-      <span ref={ref} className="text-text/80">
+      <span className="text-danger">REC</span>
+      <span ref={ref} className="text-text">
         00:00:00:00
       </span>
     </span>

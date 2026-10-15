@@ -43,12 +43,12 @@ export function VideoCard({ video, caption, onOpen, autoplayInView = false, clas
         <div className="absolute inset-0 bg-[linear-gradient(160deg,color-mix(in_oklab,var(--accent)_35%,#000),#0b0b0d_70%)]" />
       )}
       <PreviewVideo src={video.previewUrl} poster={video.posterUrl} active={active} className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,6,7,0.92)_4%,rgba(6,6,7,0.25)_40%,transparent_62%,rgba(6,6,7,0.4))]" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_0%,rgba(6,6,7,0.9)_27%,rgba(6,6,7,0.4)_50%,transparent_66%,rgba(6,6,7,0.5))]" />
       <div aria-hidden="true" className="viewfinder absolute inset-3 opacity-0 transition-opacity duration-500 [--vf-size:14px] group-hover:opacity-80" />
 
       <div className="absolute inset-x-3 top-3 flex items-center justify-between">
-        {typeof index === 'number' ? <span className="hud text-text/70">{String(index + 1).padStart(2, '0')}</span> : <span />}
-        <span className="hud rounded-full bg-black/55 px-2 py-1 text-text/90 backdrop-blur">{formatDuration(video.durationSec)}</span>
+        {typeof index === 'number' ? <span className="hud hud-plate text-text">{String(index + 1).padStart(2, '0')}</span> : <span />}
+        <span className="hud hud-plate text-text">{formatDuration(video.durationSec)}</span>
       </div>
 
       <span
@@ -58,13 +58,13 @@ export function VideoCard({ video, caption, onOpen, autoplayInView = false, clas
         <PlayIcon size={22} />
       </span>
 
-      <div className="absolute inset-x-4 bottom-4">
-        <p className="line-clamp-2 font-display text-[1.05rem] font-bold leading-snug">{label}</p>
-        <p className="mt-1 flex items-center gap-2 text-xs text-text/65">
+      <div className="text-on-media absolute inset-x-4 bottom-4">
+        <p className="line-clamp-2 font-display text-[1.1875rem] leading-[1.5]">{label}</p>
+        <p className="mt-1.5 flex items-center gap-2 text-sm text-soft">
           {caption && video.title && <span className="truncate">{caption}</span>}
           {video.plays > 0 && (
             <>
-              {caption && video.title && <span className="size-0.5 rounded-full bg-text/50" aria-hidden="true" />}
+              {caption && video.title && <span className="size-1 shrink-0 rounded-full bg-text/60" aria-hidden="true" />}
               <span className="whitespace-nowrap">{formatCompact(video.plays)} مشاهدة</span>
             </>
           )}

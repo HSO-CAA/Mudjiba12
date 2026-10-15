@@ -1,12 +1,36 @@
 @import 'tailwindcss';
 
-/* Self-hosted fonts (no CDN). Browsers only download the unicode ranges a page actually uses. */
+/* Self-hosted fonts (no CDN). Browsers only download the unicode ranges a page actually uses.
+   - Display: ZAIN (owner's font, by algharib) — one static heavy cut, Arabic only (below).
+   - Alexandria: the display stack's Latin / Western-digit face and the fallback for Arabic letters ZAIN
+     lacks (گ چ پ ڤ ژ ک ی …); also used by the 3D lens engravings. Heavy Alexandria matches ZAIN's stroke.
+   - IBM Plex Sans Arabic: running text (500 minimum — 400 is too thin on the dark background).
+   - JetBrains Mono: tiny Latin HUD readouts only. */
 @import '@fontsource-variable/alexandria/wght.css';
 @import '@fontsource-variable/jetbrains-mono/wght.css';
-@import '@fontsource/ibm-plex-sans-arabic/400.css';
 @import '@fontsource/ibm-plex-sans-arabic/500.css';
 @import '@fontsource/ibm-plex-sans-arabic/600.css';
 @import '@fontsource/ibm-plex-sans-arabic/700.css';
+
+/* ZAIN mob variable 800 — a single static weight (OS/2 says 400): served for every heavy request (700–900) so
+   the browser never fakes bold on top of it. unicode-range lists exactly what the file covers — Arabic letters,
+   harakat, Arabic-Indic digits, Arabic punctuation and the spacing/quote marks used inside Arabic text — so Latin
+   letters, Western digits and the letters it lacks go straight to Alexandria (next in --font-display) instead of
+   a system font. Keep this list in sync if the font file changes (fc-query --format='%{charset}' <file>). */
+@font-face {
+  font-family: 'Zain Display';
+  src: url('../assets/fonts/zain-800.woff2') format('woff2');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0020-0022, U+0027-0029, U+002D-002F, U+003A, U+00AB, U+00B7, U+00BB, U+060C, U+061B, U+061F, U+0621-063A,
+    U+0640-0655, U+0660-066E, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026, U+FD3E-FD3F, U+FE82, U+FE84,
+    U+FE86, U+FE88, U+FE8A-FE8C, U+FE8E, U+FE90-FE92, U+FE94, U+FE96-FE98, U+FE9A-FE9C, U+FE9E-FEA0, U+FEA2-FEA4,
+    U+FEA6-FEA8, U+FEAA, U+FEAC, U+FEAE, U+FEB0, U+FEB2-FEB4, U+FEB6-FEB8, U+FEBA-FEBC, U+FEBE-FEC0, U+FEC2-FEC4,
+    U+FEC6-FEC8, U+FECA-FECC, U+FECE-FED0, U+FED2-FED4, U+FED6-FED8, U+FEDA-FEDC, U+FEDE-FEE0, U+FEE2-FEE4,
+    U+FEE6-FEE8, U+FEEA-FEEC, U+FEEE, U+FEF0, U+FEF2-FEFC;
+}
 
 @theme {
   --color-bg: #060607;
@@ -14,11 +38,15 @@
   --color-surface-2: #16161a;
   --color-line: rgb(255 255 255 / 0.08);
   --color-line-strong: rgb(255 255 255 / 0.16);
+  /* Text ramp on the near-black stage (contrast on --color-bg / --color-surface):
+     text 17:1 · soft (running copy) 12:1 · muted (meta labels) 8.3:1 / 7.9:1. Never fade text with opacity. */
   --color-text: #f3f0ea;
-  --color-muted: #8f8b84;
+  --color-soft: #d6d1c8;
+  --color-muted: #aba69d;
   --color-rec: #ff3b30;
+  --color-danger: #ff8a80;
 
-  --font-display: 'Alexandria Variable', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-display: 'Zain Display', 'Alexandria Variable', 'IBM Plex Sans Arabic', system-ui, sans-serif;
   --font-sans: 'IBM Plex Sans Arabic', 'Alexandria Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
 
@@ -34,16 +62,23 @@
 /* Phones held sideways: the hero type scales with the height and HUD text steps aside. */
 @custom-variant short (@media (orientation: landscape) and (max-height: 540px));
 
-/* Runtime accent (site.brand.accent) — set on :root by the app. */
+/* Runtime accent (site.brand.accent) — set on :root by the app (lib/color.ts → applyAccent).
+   The owner can pick any accent, so text never uses the raw colour:
+   - `text-accent` / `text-place` read --accent-fg / --place-accent-fg: the accent lifted until it reads ≥ 7:1
+     on the dark stage (identical to the accent for the default amber);
+   - text ON an accent fill uses --accent-ink / --place-ink: black or white, whichever contrasts more. */
 @theme inline {
   --color-accent: var(--accent);
   --color-accent-soft: color-mix(in oklab, var(--accent) 22%, transparent);
   --color-place: var(--place-accent, var(--accent));
+  --text-color-accent: var(--accent-fg);
+  --text-color-place: var(--place-accent-fg, var(--accent-fg));
 }
 
 :root {
   --accent: #e9b35f;
-  --accent-ink: #1a1206;
+  --accent-fg: #e9b35f;
+  --accent-ink: #050403;
   --header-h: 4.25rem;
   --gutter: clamp(1rem, 4vw, 3.5rem);
   color-scheme: dark;
@@ -54,6 +89,7 @@
     background: var(--color-bg);
     color: var(--color-text);
     font-family: var(--font-sans);
+    font-weight: 500;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -83,8 +119,9 @@
     color: var(--accent-ink);
   }
 
+  /* readable tint of the accent: the ring stays visible even if the owner picks a dark accent */
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-fg);
     outline-offset: 3px;
     border-radius: 6px;
   }
@@ -104,6 +141,24 @@
     letter-spacing: 0;
   }
 
+  /* The display face is ONE weight: ZAIN is static, and the Latin/digits Alexandria fills in are pinned to the
+     same 800 so "S5Y", "2019" or "+" never come out heavier than the Arabic next to them (font-black etc.).
+     ZAIN's own space is only 0.13em while its final letters end in long tails — without extra word spacing a
+     tail runs straight into the next word ("صوّرتقصتها"). */
+  .font-display,
+  .display-xl {
+    font-variation-settings: 'wght' 800;
+    font-synthesis-weight: none;
+    word-spacing: 0.16em;
+  }
+  .font-display .hud,
+  .display-xl .hud,
+  .font-display .font-sans,
+  .display-xl .font-sans {
+    font-variation-settings: normal;
+    word-spacing: normal;
+  }
+
   noscript p {
     padding: 2rem;
     color: var(--color-text);
@@ -119,9 +174,11 @@
     padding-inline: var(--gutter);
   }
 
+  /* 11px Latin camera readouts — the only text allowed under 14px; keep them on solid/scrimmed ground. */
   .hud {
     font-family: var(--font-mono);
     font-size: 0.6875rem;
+    font-weight: 500;
     line-height: 1;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -134,11 +191,42 @@
     text-wrap: balance;
   }
 
+  /* ZAIN sits low in its em (marks reach 0.9em, ي dips to −0.49em), so headlines get Arabic-friendly leading. */
   .display-xl {
     font-family: var(--font-display);
-    font-weight: 850;
-    line-height: 1.12;
+    font-weight: 800;
+    line-height: 1.24;
     letter-spacing: 0;
+  }
+
+  /* Running Arabic copy: Plex 500, roomy leading, soft (not muted) ink. */
+  .copy {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 1.0625rem;
+    line-height: 1.95;
+    color: var(--color-soft);
+  }
+  @media (min-width: 40rem) {
+    .copy {
+      font-size: 1.125rem;
+    }
+  }
+
+  /* Text that sits on photos / video / the 3D stage: a soft dark halo keeps it legible on any frame. */
+  .text-on-media {
+    text-shadow:
+      0 1px 2px rgb(0 0 0 / 0.55),
+      0 0 22px rgb(0 0 0 / 0.45);
+  }
+
+  /* Small solid plate behind HUD readouts that float over imagery. */
+  .hud-plate {
+    border-radius: 999px;
+    background: rgb(6 6 7 / 0.78);
+    padding: 0.4em 0.75em;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
   }
 
   /* Viewfinder corner brackets — drawn with four gradients, no extra DOM. */

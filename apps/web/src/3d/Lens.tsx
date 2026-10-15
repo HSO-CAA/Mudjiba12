@@ -26,6 +26,9 @@ import {
   createTurnedRoughnessTexture,
 } from './textures';
 import { clamp01, damp, easeOutExpo, heroState, smoothstep } from './heroState';
+import { LENS_CHANNELS, LENS_TRACK } from './heroTimeline';
+import { QA_STILL } from './qa';
+import { sampleTrack, trackSample } from './track';
 import type { QualityProfile } from './quality';
 
 const BLADES = 9;
@@ -65,7 +68,9 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
   const focusRing = useRef<Group>(null);
   const blades = useRef<(Mesh | null)[]>([]);
   const shadow = useRef<Group>(null);
-  const smooth = useRef({ p: 0, yaw: 1.1, pitch: 0, aperture: 0.06 });
+  const glowMesh = useRef<Mesh>(null);
+  const rearGlassMesh = useRef<Mesh>(null);
+  const smooth = useRef({ yaw: 1.1, pitch: 0, aperture: 0.06 });
   const seg = profile.radialSegments;
 
   const textures = useMemo(
@@ -170,6 +175,7 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
       baffle2: new RingGeometry(0.52, 0.79, seg, 1),
       baffle3: new RingGeometry(0.45, 0.79, seg, 1),
       irisBack: new RingGeometry(0.0, 0.8, seg, 1),
+      glow: new RingGeometry(0.0, 0.56, 64, 1),
       rearGlass: capGeometry(0.5, 0.3, 48),
       blade: createIrisBlade(APERTURE_OPEN, 0.86),
     };
@@ -283,10 +289,17 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
         clearcoat: 1,
       }),
       shadow: new MeshBasicMaterial({ map: shadowMap, color: '#000000', transparent: true, opacity: 0.8, depthWrite: false }),
+      // light behind the iris: as the blades stop down it shrinks to a point (only lit in the hero push).
+      // Opaque on purpose — the transmissive front glass only refracts opaque objects.
+      glow: new MeshBasicMaterial({ color: '#000000', toneMapped: false }),
     } satisfies Record<string, Material>;
   }, [accent, profile.transmission, textures, turned, shadowMap]);
 
   useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
+
+  const pose = useMemo(() => trackSample(LENS_CHANNELS), []);
+  const bladeColor = useMemo(() => new Color('#3a3a41'), []);
+  const glowColor = useMemo(() => new Color(accent).lerp(new Color('#fff4e2'), 0.45).multiplyScalar(2.4), [accent]);
 
   useFrame((state, delta) => {
     const g = group.current;
@@ -294,43 +307,69 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
     const dt = Math.min(delta, 0.25);
     const s = smooth.current;
     const time = state.clock.elapsedTime;
+    const reduced = heroState.reducedMotion;
     let intro = 1;
-    let p = 0;
+    let t = 0;
     let px = 0;
     let py = 0;
     if (interactive) {
       const now = performance.now();
-      intro = heroState.reducedMotion ? 1 : heroState.introAt === null ? 0 : clamp01((now - heroState.introAt) / 3600);
-      p = heroState.progress;
-      px = heroState.reducedMotion ? 0 : heroState.pointerX;
-      py = heroState.reducedMotion ? 0 : heroState.pointerY;
+      intro = reduced ? 1 : heroState.introAt === null ? 0 : clamp01((now - heroState.introAt) / 3600);
+      t = heroState.timeline;
+      px = reduced ? 0 : heroState.pointerX;
+      py = reduced ? 0 : heroState.pointerY;
     }
-    s.p = damp(s.p, p, 6, dt);
-    const push = smoothstep(0.0, 0.62, s.p);
+    sampleTrack(LENS_TRACK, t, pose);
+    // pointer + intro only steer the opening frame; once the scroll choreography runs, the track owns the pose
+    const rest = 1 - smoothstep(0, 0.08, t);
     const e = easeOutExpo(intro);
 
-    const yawRest = 0.5;
-    const introYaw = 1.25 + (yawRest - 1.25) * e;
-    const yawTarget = (introYaw + px * 0.24) * (1 - push);
-    const pitchTarget = (-py * 0.12 + 0.05) * (1 - push);
-    if (heroState.reducedMotion) {
+    const introYaw = (1.25 - 0.5) * (1 - e);
+    const yawTarget = pose.yaw + (introYaw + px * 0.24) * rest;
+    const pitchTarget = pose.pitch - py * 0.12 * rest;
+    if (reduced || QA_STILL) {
       s.yaw = yawTarget;
       s.pitch = pitchTarget;
     } else {
-      s.yaw = damp(s.yaw, yawTarget, 3.2, dt);
-      s.pitch = damp(s.pitch, pitchTarget, 3.2, dt);
+      // the timeline is already damped: follow it tightly, keep the soft pointer lag at rest
+      const lambda = 3.2 + 12 * (1 - rest);
+      s.yaw = damp(s.yaw, yawTarget, lambda, dt);
+      s.pitch = damp(s.pitch, pitchTarget, lambda, dt);
     }
-    const idle = heroState.reducedMotion ? 0 : 1;
-    g.rotation.set(s.pitch + Math.sin(time * 0.37) * 0.012 * idle, s.yaw + Math.sin(time * 0.23) * 0.02 * idle, 0);
-    g.position.y = 1.3 + Math.sin(time * 0.62) * 0.028 * idle * (1 - push);
+    const idle = reduced || QA_STILL ? 0 : 1;
+    g.rotation.set(s.pitch + Math.sin(time * 0.37) * 0.012 * idle * rest, s.yaw + Math.sin(time * 0.23) * 0.02 * idle * rest, 0);
+    g.position.y = 1.3 + Math.sin(time * 0.62) * 0.028 * idle * rest;
 
-    // aperture opens with the intro, closes as the camera pushes through the lens
-    const apertureTarget = 0.05 + (APERTURE_OPEN - 0.05) * smoothstep(0.15, 0.85, intro) - (APERTURE_OPEN - 0.02) * smoothstep(0.5, 0.95, s.p);
-    s.aperture = heroState.reducedMotion ? Math.max(0, apertureTarget) : damp(s.aperture, Math.max(0.0, apertureTarget), 5, dt);
+    // the iris opens with the intro and stops down to black as the camera pushes through
+    const open = 0.05 + (APERTURE_OPEN - 0.05) * smoothstep(0.15, 0.85, intro);
+    const apertureTarget = Math.max(0, open * pose.aperture);
+    s.aperture = reduced || QA_STILL ? apertureTarget : damp(s.aperture, apertureTarget, 7, dt);
     const offset = s.aperture - APERTURE_OPEN;
     for (const b of blades.current) if (b) b.position.y = offset;
 
-    if (focusRing.current) focusRing.current.rotation.z = -s.p * 1.4 + (1 - e) * 0.8;
+    // pushing in: the coating reflections clear and the light behind the iris comes up, so the blades read
+    // as a closing silhouette that ends in a pinpoint. (With scene.environment three.js ignores a material's
+    // envMapIntensity, so the reflections are faded through opacity / specular strength instead. clearcoat and
+    // iridescence stay above 0: crossing 0 would switch shader defines and recompile mid-scroll.)
+    const clear = interactive ? smoothstep(0.66, 0.78, t) : 0;
+    const coat = 1 - clear;
+    mats.coatRear.opacity = coat;
+    mats.coatMid.opacity = coat;
+    mats.coatDeep.opacity = coat;
+    mats.glass.specularIntensity = 1 - 0.9 * clear;
+    mats.glass.clearcoat = Math.max(0.002, 1 - clear);
+    if (!profile.transmission) mats.glass.opacity = 0.62 - 0.42 * clear;
+    // metal blades mirror the studio lights; darkened they read as a clean silhouette against the glow
+    mats.blade.color.copy(bladeColor).multiplyScalar(1 - 0.8 * clear);
+    const glow = clear * (1 - smoothstep(0.835, 0.875, t));
+    mats.glow.color.copy(glowColor).multiplyScalar(glow);
+    const glowing = glow > 0.002;
+    if (glowMesh.current) glowMesh.current.visible = glowing;
+    // the rear element's dome pokes through the glow disc: hide it while the light is on
+    if (rearGlassMesh.current) rearGlassMesh.current.visible = !glowing;
+
+    // focus pull: the distance scale sweeps past as the ring turns
+    if (focusRing.current) focusRing.current.rotation.z = pose.ring + (1 - e) * 0.8;
     // the soft floor shadow follows the lens heading (yaw only) and tightens a touch as it bobs down
     if (shadow.current) {
       shadow.current.rotation.y = g.rotation.y;
@@ -363,7 +402,8 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
 
         {/* optical stack (inside → out) */}
         <mesh geometry={geos.irisBack} material={mats.interior} position={[0, 0, 0.12]} />
-        <mesh geometry={geos.rearGlass} material={mats.rearGlass} position={[0, 0, 0.13]} />
+        <mesh ref={rearGlassMesh} geometry={geos.rearGlass} material={mats.rearGlass} position={[0, 0, 0.13]} />
+        {interactive && <mesh ref={glowMesh} geometry={geos.glow} material={mats.glow} position={[0, 0, 0.2]} visible={false} />}
         <group position={[0, 0, 0.24]}>
           {Array.from({ length: BLADES }, (_, i) => (
             <group key={i} rotation={[0, 0, (i / BLADES) * Math.PI * 2]} position={[0, 0, i * 0.0035]}>

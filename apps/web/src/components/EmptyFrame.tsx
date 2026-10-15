@@ -10,8 +10,8 @@ export function EmptyFrame({ title, body, action, code = 'STANDBY' }: { title: s
         <p className="hud flex items-center gap-2 text-muted">
           <span className="rec-dot inline-block size-1.5 rounded-full bg-accent" /> {code}
         </p>
-        <h3 className="font-display text-2xl font-extrabold sm:text-3xl">{title}</h3>
-        {body && <p className="leading-7 text-muted">{body}</p>}
+        <h3 className="font-display text-[1.75rem] leading-tight sm:text-4xl">{title}</h3>
+        {body && <p className="copy">{body}</p>}
         {action}
       </div>
     </div>

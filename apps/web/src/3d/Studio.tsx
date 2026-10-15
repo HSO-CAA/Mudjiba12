@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Environment, Lightformer, MeshReflectorMaterial } from '@react-three/drei';
 import { Bloom, ChromaticAberration, DepthOfField, EffectComposer, FXAA, Noise, ToneMapping, Vignette } from '@react-three/postprocessing';
-import { BlendFunction, ToneMappingMode } from 'postprocessing';
+import { BlendFunction, ToneMappingMode, type ChromaticAberrationEffect, type VignetteEffect } from 'postprocessing';
 import { HalfFloatType, UniformsLib, Vector2, type Material, type Mesh, type Texture } from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { createNoiseTexture } from './textures';
@@ -146,18 +146,39 @@ export function StudioFloor({ profile, size = 60 }: { profile: QualityProfile; s
 }
 
 const CA_OFFSET = new Vector2(0.00055, 0.00035);
+const VIGNETTE_DARKNESS = 0.74;
+
+/**
+ * Live post-effect levels a scene can animate (mutated in place, read every frame — no React renders):
+ * `aberration` multiplies the chromatic fringe, `vignette` is the vignette darkness.
+ */
+export interface StudioFx {
+  aberration: number;
+  vignette: number;
+}
+
+export function createStudioFx(): StudioFx {
+  return { aberration: 1, vignette: VIGNETTE_DARKNESS };
+}
 
 /** Filmic post: bloom (screens + speculars), optional DOF, neutral tone mapping, vignette and grain. */
-export function StudioEffects({ profile, focus = [0, 1.3, 0.6] }: { profile: QualityProfile; focus?: [number, number, number] }) {
+export function StudioEffects({ profile, focus = [0, 1.3, 0.6], fx }: { profile: QualityProfile; focus?: [number, number, number]; fx?: StudioFx }) {
+  const ca = useRef<ChromaticAberrationEffect>(null);
+  const vignette = useRef<VignetteEffect>(null);
+  useFrame(() => {
+    if (!fx) return;
+    if (ca.current) ca.current.offset.set(CA_OFFSET.x * fx.aberration, CA_OFFSET.y * fx.aberration);
+    if (vignette.current) vignette.current.darkness = fx.vignette;
+  });
   const effects = [
     profile.depthOfField ? <DepthOfField key="dof" target={focus} worldFocusRange={6} bokehScale={1.6} resolutionScale={0.5} /> : null,
     <Bloom key="bloom" mipmapBlur intensity={0.8} luminanceThreshold={0.58} luminanceSmoothing={0.24} radius={0.74} />,
     profile.tier !== 'low' ? (
-      <ChromaticAberration key="ca" offset={CA_OFFSET} radialModulation modulationOffset={0.32} />
+      <ChromaticAberration key="ca" ref={ca} offset={CA_OFFSET} radialModulation modulationOffset={0.32} />
     ) : null,
     <ToneMapping key="tm" mode={ToneMappingMode.NEUTRAL} />,
     profile.msaa === 0 ? <FXAA key="fxaa" /> : null,
-    <Vignette key="vig" offset={0.26} darkness={0.74} />,
+    <Vignette key="vig" ref={vignette} offset={0.26} darkness={VIGNETTE_DARKNESS} />,
     <Noise key="noise" premultiply blendFunction={BlendFunction.SCREEN} opacity={0.2} />,
   ].filter((e) => e !== null);
   return (

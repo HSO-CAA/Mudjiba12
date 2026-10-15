@@ -55,7 +55,12 @@ function Carousel({
   onOpen: (i: number) => void;
   reducedMotion: boolean;
 }) {
-  const kit = useMemo(() => createPhoneKit('titanium'), []);
+  const kit = useMemo(() => {
+    const k = createPhoneKit('titanium');
+    // screens face the camera: a faint sheen only, so the studio lights never sit on top of the picture
+    k.glass.opacity = 0.32;
+    return k;
+  }, []);
   useEffect(() => () => kit.dispose(), [kit]);
   const shadowMap = useMemo(() => createSoftShadowTexture(), []);
   useEffect(() => () => shadowMap.dispose(), [shadowMap]);

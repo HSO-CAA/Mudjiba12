@@ -3,8 +3,13 @@
  * Written by DOM listeners, read inside useFrame — never triggers React renders.
  */
 export const heroState = {
-  /** 0 → 1 scroll progress through the hero runway (camera pushes into the lens). */
+  /** 0 → 1 raw scroll progress through the hero runway (written by the HTML hero on scroll). */
   progress: 0,
+  /**
+   * The choreography clock: `progress` damped once per rendered frame by the scene (see HeroScene's
+   * TimelineDriver) and read by everything that moves — camera, lens, phones, post effects.
+   */
+  timeline: 0,
   /** Pointer position normalised to -1…1 (x: left→right, y: bottom→top). */
   pointerX: 0,
   pointerY: 0,

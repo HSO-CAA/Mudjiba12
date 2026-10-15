@@ -142,17 +142,17 @@ function Reel3D({ videos, accent, placeName, onOpen, tier, lockTier }: Props & {
           />
         </Suspense>
         <div aria-hidden="true" className="viewfinder pointer-events-none absolute inset-5 opacity-50" />
-        <div className="pointer-events-none absolute inset-x-10 top-9 flex items-center justify-between">
-          <span className="hud flex items-center gap-2 text-text/75">
+        <div className="pointer-events-none absolute inset-x-8 top-8 flex items-center justify-between">
+          <span className="hud hud-plate flex items-center gap-2 text-text">
             <span className="rec-dot inline-block size-1.5 rounded-full bg-rec" /> REEL {pad2(front + 1)} / {pad2(videos.length)}
           </span>
-          <span className="hud hidden text-text/55 sm:inline">DRAG · WHEEL · ← →</span>
+          <span className="hud hud-plate hidden text-soft sm:inline">DRAG · WHEEL · ← →</span>
         </div>
       </div>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0" aria-live="polite">
-          <p className="truncate font-display text-xl font-bold">{current?.title || placeName}</p>
+          <p className="truncate pb-1 font-display text-[1.5rem] leading-[1.35]">{current?.title || placeName}</p>
           <p className="hud mt-1.5 text-muted">
             {pad2(front + 1)} / {pad2(videos.length)} · {formatDuration(current?.durationSec)}
           </p>
@@ -164,7 +164,7 @@ function Reel3D({ videos, accent, placeName, onOpen, tier, lockTier }: Props & {
           <button
             type="button"
             onClick={() => onOpen(front)}
-            className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 font-semibold text-[var(--accent-ink)] transition hover:brightness-110"
+            className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 font-display text-[1.0625rem] leading-none text-[var(--accent-ink)] transition hover:brightness-110"
           >
             <PlayIcon size={16} /> شغّل الفيديو
           </button>
@@ -187,10 +187,10 @@ function Reel2D({ videos, placeName, onOpen }: Omit<Props, 'accent'>) {
           </li>
         ))}
       </ul>
-      <p className="mt-3 flex items-center justify-center gap-2 text-xs text-muted">
+      <p className="mt-3 flex items-center justify-center gap-2 text-muted">
         <span className="hud">SWIPE</span>
         <span aria-hidden="true">·</span>
-        <span>اسحب للتنقل</span>
+        <span className="font-display text-[0.9375rem] leading-none text-soft">اسحب للتنقل</span>
       </p>
     </div>
   );

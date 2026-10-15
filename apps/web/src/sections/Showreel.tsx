@@ -1,19 +1,66 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { PlaceSummary, PublicVideo } from '@s5y/shared';
+import { useHome } from '../api/queries';
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/Icons';
 import { SectionHeading } from '../components/SectionHeading';
 import { VideoCard } from '../components/VideoCard';
+import { useReducedMotion } from '../hooks/useMediaQuery';
+import { safeColor } from '../lib/color';
+import { detectQualityTier, hasWebGL, isQualityForced } from '../lib/device';
 import { usePlayer, type PlayerPlaceRef } from '../player/PlayerProvider';
+import { ShowreelStage } from './ShowreelStage';
+
+/** The 3D helix needs a few reels to read as one; fewer stay in the row. */
+const MIN_REELS_3D = 3;
+
+/**
+ * Featured reels. Capable devices get the pinned, scroll-driven 3D helix (ShowreelStage); low tier, reduced
+ * motion, no WebGL (or a scene failure) keep the horizontal, drag-scrollable row of cards.
+ */
+export function Showreel({ videos, places, index, total }: { videos: PublicVideo[]; places: PlaceSummary[]; index: number; total: number }) {
+  const accent = safeColor(useHome().data?.site.brand.accent);
+  const placeMap = useMemo<Record<string, PlayerPlaceRef>>(() => Object.fromEntries(places.map((p) => [p.id, { name: p.name, slug: p.slug }])), [places]);
+  const tier = useMemo(() => detectQualityTier(), []);
+  const lockTier = useMemo(() => isQualityForced(), []);
+  const [webgl] = useState(() => hasWebGL());
+  const [failed, setFailed] = useState(false);
+  const reduced = useReducedMotion();
+  const use3D = webgl && !failed && !reduced && tier !== 'low' && videos.length >= MIN_REELS_3D;
+
+  if (!videos.length) return null;
+  if (!use3D) return <ShowreelRow videos={videos} placeMap={placeMap} index={index} total={total} />;
+
+  return (
+    <section id="showreel" aria-labelledby="showreel-title" className="relative scroll-mt-24 pt-24 sm:pt-32">
+      <div className="container-cine relative">
+        <SectionHeading
+          id="showreel"
+          index={index}
+          total={total}
+          code="SHOWREEL"
+          kicker="مختارات"
+          title="ريلز مختارة"
+          description="انزل وخلّي الريلز تدور قدامك — اضغط على أي ريل حتى تشوفه بجودة كاملة وبالصوت."
+        />
+      </div>
+      <ShowreelStage
+        videos={videos}
+        placeMap={placeMap}
+        accent={accent}
+        tier={tier}
+        lockTier={lockTier}
+        onUnavailable={() => setFailed(true)}
+      />
+    </section>
+  );
+}
 
 /** Horizontal, drag-scrollable strip of featured reels; each autoplays muted in view. */
-export function Showreel({ videos, places, index, total }: { videos: PublicVideo[]; places: PlaceSummary[]; index: number; total: number }) {
+function ShowreelRow({ videos, placeMap, index, total }: { videos: PublicVideo[]; placeMap: Record<string, PlayerPlaceRef>; index: number; total: number }) {
   const scroller = useRef<HTMLUListElement>(null);
   const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
   const [dragging, setDragging] = useState(false);
   const { open } = usePlayer();
-  const placeMap: Record<string, PlayerPlaceRef> = Object.fromEntries(places.map((p) => [p.id, { name: p.name, slug: p.slug }]));
-
-  if (!videos.length) return null;
 
   const scrollByCard = (dir: 1 | -1) => {
     const el = scroller.current;

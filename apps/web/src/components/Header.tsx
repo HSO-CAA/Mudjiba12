@@ -66,24 +66,31 @@ export function Header({ site, hasPlans }: { site: PublicSite | undefined; hasPl
         data-site-header
         className={`fixed inset-x-0 top-0 z-50 transition-[transform,background-color,border-color,backdrop-filter] duration-500 ease-[cubic-bezier(.16,1,.3,1)] ${
           hidden && !open ? '-translate-y-full' : 'translate-y-0'
-        } ${scrolled ? 'border-b border-line bg-bg/70 backdrop-blur-xl' : 'border-b border-transparent'}`}
+        } ${scrolled ? 'border-b border-line bg-bg/80 backdrop-blur-xl' : 'border-b border-transparent'}`}
       >
+        {/* over the hero / cover photos the bar has no fill: a scrim that runs past its bottom edge keeps it legible */}
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-x-0 top-0 -z-10 h-[calc(var(--header-h)+3rem)] bg-[linear-gradient(to_bottom,rgba(6,6,7,0.9),rgba(6,6,7,0.72)_55%,transparent)] transition-opacity duration-500 ${
+            scrolled ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
         <div className="container-cine flex h-[var(--header-h)] items-center justify-between gap-6">
           <Link to="/" className="group flex items-center gap-3" aria-label={`${name} — الرئيسية`} onClick={() => setOpen(false)}>
             <LensGlyph className="transition-transform duration-700 group-hover:rotate-[160deg]" />
             <span className="flex flex-col leading-none">
               <span className="font-display text-lg font-extrabold">{name}</span>
-              {handle && <span className="hud mt-1 text-[0.6rem] text-muted">@{handle}</span>}
+              {handle && <span className="hud mt-1.5 text-soft">@{handle}</span>}
             </span>
           </Link>
 
-          <nav aria-label="القائمة الرئيسية" className="hidden items-center gap-1 md:flex">
+          <nav aria-label="القائمة الرئيسية" className="hidden items-center gap-1 lg:flex">
             {items.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => select(item.id)}
-                className="rounded-full px-4 py-2 text-[0.95rem] text-text/80 transition hover:bg-white/5 hover:text-text"
+                className="rounded-full px-4 py-2 font-display text-[1.125rem] leading-none text-soft transition hover:bg-white/[0.07] hover:text-text"
               >
                 {item.label}
               </button>
@@ -94,7 +101,7 @@ export function Header({ site, hasPlans }: { site: PublicSite | undefined; hasPl
             <button
               type="button"
               onClick={() => select('contact')}
-              className="hidden h-10 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-[var(--accent-ink)] transition hover:brightness-110 sm:inline-flex"
+              className="hidden h-10 items-center gap-2 rounded-full bg-accent px-5 font-display text-[1.0625rem] leading-none text-[var(--accent-ink)] transition hover:brightness-110 sm:inline-flex"
             >
               <span className="rec-dot inline-block size-1.5 rounded-full bg-[var(--accent-ink)]" aria-hidden="true" />
               احجز تصوير
@@ -102,7 +109,7 @@ export function Header({ site, hasPlans }: { site: PublicSite | undefined; hasPl
             <button
               type="button"
               onClick={() => setOpen((o) => !o)}
-              className="grid size-11 place-items-center rounded-full border border-line-strong bg-white/[0.03] md:hidden"
+              className="grid size-11 place-items-center rounded-full border border-line-strong bg-white/[0.03] lg:hidden"
               aria-expanded={open}
               aria-controls="mobile-menu"
               aria-label={open ? 'إغلاق القائمة' : 'فتح القائمة'}
@@ -117,7 +124,7 @@ export function Header({ site, hasPlans }: { site: PublicSite | undefined; hasPl
         {open && (
           <motion.div
             id="mobile-menu"
-            className="fixed inset-0 z-40 flex flex-col bg-bg/95 px-6 pb-10 pt-[calc(var(--header-h)+2rem)] backdrop-blur-2xl md:hidden"
+            className="fixed inset-0 z-40 flex flex-col bg-bg/[0.97] px-6 pb-10 pt-[calc(var(--header-h)+2rem)] backdrop-blur-2xl lg:hidden"
             initial={{ clipPath: 'inset(0 0 100% 0)' }}
             animate={{ clipPath: 'inset(0 0 0% 0)' }}
             exit={{ clipPath: 'inset(0 0 100% 0)' }}

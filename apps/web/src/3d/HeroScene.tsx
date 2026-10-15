@@ -1,15 +1,19 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
-import { Group, PerspectiveCamera, Vector3 } from 'three';
+import { Euler, Fog, Group, MeshBasicMaterial, PerspectiveCamera, Quaternion, Vector3, type Mesh } from 'three';
 import type { PublicVideo } from '@s5y/shared';
 import type { QualityTier } from '../lib/device';
 import { boot } from '../app/loading';
 import { Lens } from './Lens';
 import { Phone, createPhoneKit } from './Phone';
-import { FloorShadow, SharedTextureRelease, StudioEffects, StudioEnvironment, StudioFloor, ensureRectAreaLights } from './Studio';
+import { SharedTextureRelease, StudioEffects, StudioEnvironment, StudioFloor, createStudioFx, ensureRectAreaLights, type StudioFx } from './Studio';
 import { createSoftShadowTexture } from './textures';
-import { clamp01, damp, easeInOutCubic, easeOutExpo, heroState, smoothstep } from './heroState';
+import { clamp01, damp, easeOutExpo, heroState, smoothstep } from './heroState';
+import { CAMERA_CHANNELS, HERO_FORMATION, cameraTrack } from './heroTimeline';
+import { QA_STILL } from './qa';
+import { QaStillInvalidator } from './QaStill';
+import { sampleTrack, trackSample } from './track';
 import { DebugHandle } from './DebugHandle';
 import { lowerTier, qualityProfile, type QualityProfile } from './quality';
 
@@ -20,8 +24,10 @@ export interface HeroSceneProps {
   tier: QualityTier;
   /** Keep the tier fixed (QA override) instead of adapting to the measured frame rate. */
   lockTier: boolean;
-  /** Render + decode only while the hero is on screen and the tab is visible. */
+  /** Render + play only while the hero holds the render lease (on screen, tab visible, not covered). */
   active: boolean;
+  /** Keep video decoders for the screens (phones release them while the hero is off screen). */
+  decode: boolean;
   compact: boolean;
   reducedMotion: boolean;
   onReady: () => void;
@@ -31,7 +37,7 @@ export interface HeroSceneProps {
 const LENS_FOCUS: [number, number, number] = [0, 1.3, 0];
 
 function introProgress(): number {
-  if (heroState.reducedMotion) return 1;
+  if (heroState.reducedMotion || QA_STILL) return 1;
   if (heroState.introAt === null) return 0;
   return clamp01((performance.now() - heroState.introAt) / 3600);
 }
@@ -141,30 +147,161 @@ function placeSlots(count: number, aspect: number, compact: boolean): Slot[] {
   });
 }
 
-function PhonesArc({ videos, accent, profile, play, compact }: { videos: PublicVideo[]; accent: string; profile: QualityProfile; play: boolean; compact: boolean }) {
+/** Where the phones fly to: a rising spiral around the lens, then a halo of screens around its front. */
+interface FormationSpec {
+  spiralRadius: number;
+  /** Depth squash of the spiral (an ellipse: the front screens stay clear of the camera). */
+  spiralDepth: number;
+  spiralZ: number;
+  spiralLow: number;
+  spiralHigh: number;
+  haloRadius: number;
+  haloZ: number;
+}
+const WIDE_FORMATION: FormationSpec = { spiralRadius: 3.7, spiralDepth: 0.78, spiralZ: -0.6, spiralLow: 1.6, spiralHigh: 4.4, haloRadius: 2.55, haloZ: 2.2 };
+const COMPACT_FORMATION: FormationSpec = { spiralRadius: 2.15, spiralDepth: 0.9, spiralZ: -0.5, spiralLow: 1.6, spiralHigh: 4.95, haloRadius: 2.45, haloZ: 2.2 };
+const TAU = Math.PI * 2;
+/** Spiral heading of the first (lowest, most important) phone, so it sits front-left when the camera arrives. */
+const SPIRAL_START = -1.35;
+/** Halo angle of the first phone (12 o'clock). */
+const HALO_START = Math.PI / 2;
+
+interface PhoneRig {
+  restPos: Vector3;
+  restQ: Quaternion;
+  pos: Vector3;
+  q: Quaternion;
+  target: Vector3;
+  targetQ: Quaternion;
+  euler: Euler;
+}
+
+function PhonesFormation({
+  videos,
+  accent,
+  profile,
+  play,
+  decode,
+  compact,
+}: {
+  videos: PublicVideo[];
+  accent: string;
+  profile: QualityProfile;
+  play: boolean;
+  decode: boolean;
+  compact: boolean;
+}) {
   const kit = useMemo(() => createPhoneKit('titanium'), []);
   useEffect(() => () => kit.dispose(), [kit]);
   const shadowMap = useMemo(() => createSoftShadowTexture(), []);
   useEffect(() => () => shadowMap.dispose(), [shadowMap]);
   const size = useThree((s) => s.size);
+  const camera = useThree((s) => s.camera);
   const aspect = Math.round((size.width / Math.max(1, size.height)) * 50) / 50;
   const count = compact ? COMPACT_SLOTS.length : Math.min(WIDE_SLOTS.length, Math.max(5, videos.length));
   const slots = useMemo(() => placeSlots(count, aspect, compact), [count, aspect, compact]);
   const powers = useMemo(() => slots.map(() => ({ current: 0 })), [slots]);
+  const rigs = useMemo<PhoneRig[]>(
+    () =>
+      slots.map((slot) => ({
+        restPos: new Vector3(...slot.position),
+        restQ: new Quaternion().setFromEuler(new Euler(...slot.rotation)),
+        pos: new Vector3(...slot.position),
+        q: new Quaternion().setFromEuler(new Euler(...slot.rotation)),
+        target: new Vector3(),
+        targetQ: new Quaternion(),
+        euler: new Euler(0, 0, 0, 'YXZ'),
+      })),
+    [slots],
+  );
+  const shadowMats = useMemo(
+    () => slots.map(() => new MeshBasicMaterial({ map: shadowMap, color: '#000000', transparent: true, opacity: 0.75, depthWrite: false })),
+    [slots, shadowMap],
+  );
+  useEffect(() => () => shadowMats.forEach((m) => m.dispose()), [shadowMats]);
+  const holders = useRef<(Group | null)[]>([]);
   const bobs = useRef<(Group | null)[]>([]);
-  // phones: at most three decoders (the front row); the deep row shows posters
-  const decodeBudget = Math.min(compact ? Math.min(3, profile.maxVideoTextures) : profile.maxVideoTextures, videos.length);
+  const shadows = useRef<(Mesh | null)[]>([]);
+  const form = compact ? COMPACT_FORMATION : WIDE_FORMATION;
+  // phones: at most three decoders (the front row); the deep row shows posters. Off screen: none at all on phones.
+  const decodeBudget = decode ? Math.min(compact ? Math.min(3, profile.maxVideoTextures) : profile.maxVideoTextures, videos.length) : 0;
 
   useFrame((state) => {
     const intro = introProgress();
-    const p = heroState.progress;
-    const t = state.clock.elapsedTime;
-    slots.forEach((slot, i) => {
+    const t = heroState.timeline;
+    const time = state.clock.elapsedTime;
+    const still = heroState.reducedMotion || QA_STILL;
+    const n = slots.length;
+    const s0 = HERO_FORMATION.spiral[0];
+    const s1 = HERO_FORMATION.spiral[1];
+    const h0 = HERO_FORMATION.halo[0];
+    const h1 = HERO_FORMATION.halo[1];
+    const spin = (t - s0) * 2.4;
+    const vortex = (t - h0) * 2.8;
+    // the halo opens and rushes past the camera as it pushes into the lens
+    const rush = smoothstep(HERO_FORMATION.rush[0], HERO_FORMATION.rush[1], t);
+    const fade = 1 - smoothstep(0.8, 0.885, t) * 0.92;
+    const cam = camera.position;
+    // Facing the camera, the screens' glass would mirror the front ring light right over the picture: in
+    // formation the (additive) reflection layer keeps only a faint sheen so the reels stay readable.
+    kit.glass.opacity = 1 - 0.78 * smoothstep(s0, s1, t);
+    for (let i = 0; i < n; i++) {
+      const slot = slots[i];
+      const r = rigs[i];
+      const g = holders.current[i];
+      if (!slot || !r || !g) continue;
+      const k1 = smoothstep(s0 + i * HERO_FORMATION.spiralStagger, s1 + i * HERO_FORMATION.spiralStagger, t);
+      const k2 = smoothstep(h0 + i * HERO_FORMATION.haloStagger, h1 + i * HERO_FORMATION.haloStagger, t);
+      r.pos.copy(r.restPos);
+      r.q.copy(r.restQ);
+      let yaw = slot.rotation[1];
+      if (k1 > 0) {
+        const f = n > 1 ? i / (n - 1) : 0.5;
+        const a = SPIRAL_START + i * (TAU / n) + spin;
+        const x = Math.sin(a) * form.spiralRadius;
+        const z = form.spiralZ + Math.cos(a) * form.spiralRadius * form.spiralDepth;
+        const y = form.spiralLow + (form.spiralHigh - form.spiralLow) * f;
+        r.target.set(x, y, z);
+        // each screen turns to the camera (a touch of tilt so the stack reads as a spiral, not a wall)
+        const dx = cam.x - x;
+        const dz = cam.z - z;
+        const facing = Math.atan2(dx, dz);
+        r.euler.set(-Math.atan2(cam.y - y, Math.hypot(dx, dz)) * 0.55, facing, Math.sin(i * 2.1) * 0.07);
+        r.targetQ.setFromEuler(r.euler);
+        r.pos.lerp(r.target, k1);
+        r.pos.y += Math.sin(Math.PI * k1) * 0.9; // flight arc
+        r.q.slerp(r.targetQ, k1);
+        yaw += (facing - yaw) * k1;
+      }
+      if (k2 > 0) {
+        const b = HALO_START + i * (TAU / n) + vortex;
+        const rad = form.haloRadius * (1 + 0.6 * rush);
+        r.target.set(Math.cos(b) * rad, 1.3 + Math.sin(b) * rad, form.haloZ + 3.2 * rush);
+        // face the lens axis, long side radial: the screens read as iris blades of light
+        r.euler.set(0, 0, b - Math.PI / 2);
+        r.targetQ.setFromEuler(r.euler);
+        r.pos.lerp(r.target, k2);
+        r.q.slerp(r.targetQ, k2);
+      }
+      g.position.copy(r.pos);
+      g.quaternion.copy(r.q);
+
       const pw = powers[i];
-      if (pw) pw.current = slot.dim * smoothstep(slot.delay, slot.delay + 0.22, intro) * (1 - smoothstep(0.55, 0.95, p) * 0.85);
-      const g = bobs.current[i];
-      if (g && !heroState.reducedMotion) g.position.y = Math.sin(t * 0.55 + i * 1.7) * 0.035;
-    });
+      if (pw) pw.current = (slot.dim + (1 - slot.dim) * k1) * smoothstep(slot.delay, slot.delay + 0.22, intro) * fade;
+      const bob = bobs.current[i];
+      if (bob) bob.position.y = still ? 0 : Math.sin(time * 0.55 + i * 1.7) * 0.035 * (1 - k2);
+
+      const sh = shadows.current[i];
+      const mat = shadowMats[i];
+      if (sh && mat) {
+        const lift = Math.max(0, r.pos.y - r.restPos.y);
+        sh.position.set(r.pos.x, 0.004, r.pos.z);
+        sh.rotation.z = yaw;
+        sh.scale.set(2.1 * (1 + lift * 0.35), 0.75 * (1 + lift * 0.35), 1);
+        mat.opacity = 0.75 * (1 - smoothstep(0, 1.8, lift)) * (1 - k2);
+        sh.visible = mat.opacity > 0.01;
+      }
+    }
   });
 
   return (
@@ -174,7 +311,13 @@ function PhonesArc({ videos, accent, profile, play, compact }: { videos: PublicV
         const allowVideo = !!video && slot.rank < decodeBudget;
         return (
           <group key={i}>
-            <group position={slot.position} rotation={slot.rotation}>
+            <group
+              ref={(g) => {
+                holders.current[i] = g;
+              }}
+              position={slot.position}
+              rotation={slot.rotation}
+            >
               <group
                 ref={(g) => {
                   bobs.current[i] = g;
@@ -194,7 +337,16 @@ function PhonesArc({ videos, accent, profile, play, compact }: { videos: PublicV
                 />
               </group>
             </group>
-            <FloorShadow map={shadowMap} position={[slot.position[0], slot.position[2]]} rotationY={slot.rotation[1]} size={[2.1, 0.75]} opacity={0.75} />
+            <mesh
+              ref={(m) => {
+                shadows.current[i] = m;
+              }}
+              geometry={kit.shadowPlane}
+              material={shadowMats[i]}
+              position={[slot.position[0], 0.004, slot.position[2]]}
+              rotation={[-Math.PI / 2, 0, slot.rotation[1]]}
+              scale={[2.1, 0.75, 1]}
+            />
           </group>
         );
       })}
@@ -202,56 +354,53 @@ function PhonesArc({ videos, accent, profile, play, compact }: { videos: PublicV
   );
 }
 
+/** Damps the raw scroll progress into the choreography clock — once per frame, before anything reads it. */
+function TimelineDriver({ reducedMotion }: { reducedMotion: boolean }) {
+  useFrame((_, delta) => {
+    const target = reducedMotion ? 0 : heroState.progress;
+    heroState.timeline = QA_STILL ? target : damp(heroState.timeline, target, 4.2, Math.min(delta, 0.1));
+  }, -2);
+  return null;
+}
+
 function CameraRig({ compact }: { compact: boolean }) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
-  const pos = useRef(new Vector3(0, 2.6, 22));
-  const look = useRef(new Vector3(...LENS_FOCUS));
-  const smoothP = useRef(0);
-  const target = useMemo(() => new Vector3(), []);
+  const pose = useMemo(() => trackSample(CAMERA_CHANNELS), []);
+  const pointer = useRef({ x: 0, y: 0 });
+  const look = useMemo(() => new Vector3(), []);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.25);
+    const t = heroState.timeline;
+    sampleTrack(cameraTrack(compact), t, pose);
     const intro = easeOutExpo(introProgress());
-    smoothP.current = damp(smoothP.current, heroState.progress, 5, dt);
-    const p = smoothP.current;
-    const push = easeInOutCubic(smoothstep(0.02, 0.92, p));
+    const rest = 1 - smoothstep(0, 0.08, t);
+    const reduced = heroState.reducedMotion || QA_STILL;
+    const p = pointer.current;
+    p.x = reduced ? 0 : damp(p.x, heroState.pointerX, 3.5, dt);
+    p.y = reduced ? 0 : damp(p.y, heroState.pointerY, 3.5, dt);
 
-    const base = compact ? COMPACT_BASE : WIDE_BASE;
-    const start = [base[0] ?? 0, (base[1] ?? 0) + 1.6, (base[2] ?? 0) + 11];
-    const inside = [0, 1.31, 1.42];
-    const reduced = heroState.reducedMotion;
-    const px = reduced ? 0 : heroState.pointerX;
-    const py = reduced ? 0 : heroState.pointerY;
-
-    for (let k = 0; k < 3; k++) {
-      const introVal = (start[k] ?? 0) + ((base[k] ?? 0) - (start[k] ?? 0)) * intro;
-      target.setComponent(k, introVal + ((inside[k] ?? 0) - introVal) * push);
-    }
-    target.x += px * 0.45 * (1 - push);
-    target.y += py * 0.22 * (1 - push);
-
-    if (reduced) pos.current.copy(target);
-    else {
-      pos.current.x = damp(pos.current.x, target.x, 3.5, dt);
-      pos.current.y = damp(pos.current.y, target.y, 3.5, dt);
-      pos.current.z = damp(pos.current.z, target.z, 3.5, dt);
-    }
-    camera.position.copy(pos.current);
-    look.current.set(LENS_FOCUS[0], LENS_FOCUS[1] - 0.05 * (1 - push), LENS_FOCUS[2]);
-    camera.lookAt(look.current);
+    // the timeline is already damped, so the camera sits exactly on the track (no chord-cutting through arcs)
+    const ce = Math.cos(pose.el);
+    camera.position.set(
+      LENS_FOCUS[0] + pose.d * ce * Math.sin(pose.az) + p.x * 0.45 * rest,
+      LENS_FOCUS[1] + pose.d * Math.sin(pose.el) + (1.6 * (1 - intro) + p.y * 0.22) * rest,
+      LENS_FOCUS[2] + pose.d * ce * Math.cos(pose.az) + 11 * (1 - intro) * rest,
+    );
+    look.set(pose.lookX, pose.lookY, pose.lookZ);
+    camera.lookAt(look);
+    if (pose.roll !== 0) camera.rotateZ(pose.roll);
 
     // Layout framing: lens sits in the left third on desktop (copy is on the right in RTL), higher on phones.
     const w = size.width;
     const h = size.height;
-    const ox = compact ? 0 : w * WIDE_SHIFT * (1 - push);
-    const oy = compact ? h * COMPACT_SHIFT * (1 - push) : 0;
     if (camera instanceof PerspectiveCamera) {
-      const fov = compact ? COMPACT_FOV : wideFov(w / Math.max(1, h));
-      if (camera.fov !== fov) camera.fov = fov; // rotating a tablet can flip the layout after creation
-      camera.setViewOffset(w, h, ox, oy, w, h);
+      const fov = (compact ? COMPACT_FOV : wideFov(w / Math.max(1, h))) * pose.fovK;
+      if (camera.fov !== fov) camera.fov = fov;
+      camera.setViewOffset(w, h, compact ? 0 : w * WIDE_SHIFT * pose.frame, compact ? h * COMPACT_SHIFT * pose.frame : 0, w, h);
     }
-  });
+  }, -1);
 
   useEffect(
     () => () => {
@@ -262,13 +411,23 @@ function CameraRig({ compact }: { compact: boolean }) {
   return null;
 }
 
-/** Studio exposure: environment intensity ramps up with the intro ("lights on"). */
-function Exposure() {
+/** Studio exposure + post levels: lights on with the intro, the set goes dark and the image streaks as the iris closes. */
+function Exposure({ fx, fogFar }: { fx: StudioFx; fogFar: number }) {
   const scene = useThree((s) => s.scene);
   useFrame(() => {
     const intro = introProgress();
-    const p = heroState.progress;
-    scene.environmentIntensity = (0.04 + 0.96 * smoothstep(0.05, 0.6, intro)) * (1 - smoothstep(0.6, 0.98, p) * 0.9);
+    const t = heroState.timeline;
+    scene.environmentIntensity = (0.04 + 0.96 * smoothstep(0.05, 0.6, intro)) * (1 - smoothstep(0.74, 0.88, t) * 0.92);
+    const push = smoothstep(0.64, 0.84, t);
+    fx.aberration = 1 + 7 * push;
+    fx.vignette = 0.74 + 0.2 * push;
+    // the wide reveal of the spiral pulls the haze back so the far screens stay readable
+    const fog = scene.fog;
+    if (fog instanceof Fog) {
+      const open = smoothstep(0.32, 0.5, t) * (1 - smoothstep(0.58, 0.66, t));
+      fog.near = 10 + 5 * open;
+      fog.far = fogFar + 8 * open;
+    }
   });
   return null;
 }
@@ -281,19 +440,22 @@ function ReadySignal({ onReady }: { onReady: () => void }) {
     frames.current++;
     if (frames.current >= 3) {
       done.current = true;
-      // Returning to the home page (loader long gone): play the dolly-in again once the scene is live.
+      // Returning to the home page (loader long gone): play the dolly-in again once the scene is live —
+      // but only on the opening frame, never when the scene remounts mid-choreography.
       const now = performance.now();
-      if (boot.isDismissed() && (heroState.introAt === null || now - heroState.introAt > 4000)) heroState.introAt = now;
+      if (boot.isDismissed() && heroState.progress < 0.04 && (heroState.introAt === null || now - heroState.introAt > 4000)) heroState.introAt = now;
       onReady();
     }
   });
   return null;
 }
 
-export default function HeroScene({ videos, accent, mark, tier, lockTier, active, compact, reducedMotion, onReady, onFatal }: HeroSceneProps) {
+export default function HeroScene({ videos, accent, mark, tier, lockTier, active, decode, compact, reducedMotion, onReady, onFatal }: HeroSceneProps) {
   const [currentTier, setCurrentTier] = useState<QualityTier>(tier);
   const [perf, setPerf] = useState(1);
   const profile = qualityProfile(currentTier);
+  const fx = useMemo(() => createStudioFx(), []);
+  const fogFar = compact ? 30 : 26;
   ensureRectAreaLights();
 
   useEffect(() => {
@@ -303,7 +465,7 @@ export default function HeroScene({ videos, accent, mark, tier, lockTier, active
   return (
     <Canvas
       dpr={[profile.dpr[0], profile.dpr[0] + (profile.dpr[1] - profile.dpr[0]) * perf]}
-      frameloop={reducedMotion ? 'demand' : active ? 'always' : 'never'}
+      frameloop={QA_STILL || reducedMotion ? 'demand' : active ? 'always' : 'never'}
       gl={{ antialias: false, alpha: false, powerPreference: 'high-performance', stencil: false }}
       camera={{ fov: compact ? COMPACT_FOV : WIDE_FOV, near: 0.05, far: 70, position: [0, 3.2, 22] }}
       onCreated={({ gl }) => {
@@ -317,7 +479,7 @@ export default function HeroScene({ videos, accent, mark, tier, lockTier, active
       tabIndex={-1}
     >
       <color attach="background" args={['#060607']} />
-      <fog attach="fog" args={['#060607', 10, compact ? 30 : 26]} />
+      <fog attach="fog" args={['#060607', 10, fogFar]} />
       {!lockTier && (
         <PerformanceMonitor
           factor={1}
@@ -327,15 +489,17 @@ export default function HeroScene({ videos, accent, mark, tier, lockTier, active
           onFallback={() => setCurrentTier('low')}
         />
       )}
+      <TimelineDriver reducedMotion={reducedMotion} />
+      {QA_STILL && <QaStillInvalidator />}
       <Suspense fallback={null}>
         <StudioEnvironment accent={accent} resolution={profile.envResolution} focus={LENS_FOCUS} />
-        <Exposure />
+        <Exposure fx={fx} fogFar={fogFar} />
         <spotLight position={[0.5, 7.5, 3.5]} angle={0.42} penumbra={1} intensity={26} distance={20} decay={1.6} color="#ffe2bd" />
-        <Lens accent={accent} mark={mark} profile={profile} />
-        <PhonesArc videos={videos} accent={accent} profile={profile} play={active && !reducedMotion} compact={compact} />
-        <StudioFloor profile={profile} />
         <CameraRig compact={compact} />
-        <StudioEffects profile={profile} focus={[0, 1.3, 0.8]} />
+        <Lens accent={accent} mark={mark} profile={profile} />
+        <PhonesFormation videos={videos} accent={accent} profile={profile} play={active && !reducedMotion} decode={decode} compact={compact} />
+        <StudioFloor profile={profile} />
+        <StudioEffects profile={profile} focus={[0, 1.3, 0.8]} fx={fx} />
         <ReadySignal onReady={onReady} />
         <SharedTextureRelease />
       </Suspense>

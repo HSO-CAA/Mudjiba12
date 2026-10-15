@@ -51,16 +51,16 @@ export function Footer({ site }: { site: PublicSite | undefined }) {
         <div className="mt-20 grid gap-10 border-t border-line pt-10 sm:grid-cols-[1fr_auto] sm:items-end">
           <div className="flex flex-col gap-4">
             {site?.contact.email && (
-              <a href={`mailto:${site.contact.email}`} className="inline-flex items-center gap-2.5 self-start text-muted transition hover:text-text">
+              <a href={`mailto:${site.contact.email}`} className="inline-flex items-center gap-2.5 self-start text-soft transition hover:text-text">
                 <MailIcon size={18} /> <span dir="ltr">{site.contact.email}</span>
               </a>
             )}
             {site?.contact.phone && (
-              <a href={`tel:${site.contact.phone.replace(/\s+/g, '')}`} className="inline-flex items-center gap-2.5 self-start text-muted transition hover:text-text">
+              <a href={`tel:${site.contact.phone.replace(/\s+/g, '')}`} className="inline-flex items-center gap-2.5 self-start text-soft transition hover:text-text">
                 <PhoneIcon size={18} /> <span dir="ltr">{site.contact.phone}</span>
               </a>
             )}
-            {site?.contact.address && <p className="text-muted">{site.contact.address}</p>}
+            {site?.contact.address && <p className="text-soft">{site.contact.address}</p>}
           </div>
           {socials.length > 0 && (
             <ul className="flex flex-wrap gap-2" aria-label="حسابات التواصل">
@@ -72,7 +72,7 @@ export function Footer({ site }: { site: PublicSite | undefined }) {
                     rel="noopener noreferrer"
                     aria-label={s.label}
                     title={s.label}
-                    className="grid size-12 place-items-center rounded-full border border-line-strong text-text/85 transition hover:-translate-y-0.5 hover:border-accent hover:text-accent"
+                    className="grid size-12 place-items-center rounded-full border border-line-strong text-text transition hover:-translate-y-0.5 hover:border-accent hover:text-accent"
                   >
                     <SocialIcon kind={s.key} />
                   </a>
@@ -86,17 +86,17 @@ export function Footer({ site }: { site: PublicSite | undefined }) {
       <div className="relative select-none overflow-hidden" aria-hidden="true">
         <p
           dir="ltr"
-          className="whitespace-nowrap bg-gradient-to-b from-white/[0.09] via-white/[0.04] to-transparent bg-clip-text pb-4 text-center font-display text-[clamp(6rem,26vw,24rem)] font-black leading-[0.8] tracking-[-0.04em] text-transparent"
+          className="whitespace-nowrap bg-gradient-to-b from-white/[0.42] via-white/[0.14] to-transparent bg-clip-text pb-4 text-center font-display text-[clamp(6rem,26vw,24rem)] leading-[0.8] tracking-[-0.04em] text-transparent"
         >
           {mark}
         </p>
       </div>
 
-      <div className="container-cine relative flex flex-col-reverse items-center justify-between gap-4 border-t border-line py-6 text-sm text-muted sm:flex-row">
+      <div className="container-cine relative flex flex-col-reverse items-center justify-between gap-4 border-t border-line py-6 text-[0.9375rem] text-muted sm:flex-row">
         <p>
           © <span dir="ltr">{year}</span> {name} — جميع الحقوق محفوظة
         </p>
-        <button type="button" onClick={() => go('top')} className="inline-flex items-center gap-2 transition hover:text-text">
+        <button type="button" onClick={() => go('top')} className="inline-flex items-center gap-2 font-display text-base text-soft transition hover:text-text">
           للأعلى <ArrowUpIcon size={16} />
         </button>
       </div>

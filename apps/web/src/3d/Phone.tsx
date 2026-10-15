@@ -7,6 +7,7 @@ import {
   MeshBasicMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
+  PlaneGeometry,
   RectAreaLight,
   Vector3,
   type ShaderMaterial,
@@ -20,6 +21,8 @@ export type PhoneKit = ReturnType<typeof createPhoneKit>;
 /** Geometries + shared materials for every phone in a scene (created once). */
 export function createPhoneKit(finish: 'titanium' | 'graphite' = 'titanium') {
   const geos = createPhoneGeometries(PHONE);
+  /** Unit quad for the soft contact shadows under each phone. */
+  const shadowPlane = new PlaneGeometry(1, 1);
   const frame = new MeshPhysicalMaterial({
     color: finish === 'titanium' ? '#8e8b86' : '#2e2e33',
     metalness: 1,
@@ -49,8 +52,10 @@ export function createPhoneKit(finish: 'titanium' | 'graphite' = 'titanium') {
     glass,
     back,
     lensGlass,
+    shadowPlane,
     dispose() {
       Object.values(geos).forEach((g) => typeof g === 'object' && g.dispose());
+      shadowPlane.dispose();
       frame.dispose();
       black.dispose();
       glass.dispose();

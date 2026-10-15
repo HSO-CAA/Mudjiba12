@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react';
-import { motion, useMotionValueEvent, useReducedMotion, useTransform } from 'motion/react';
+import { useCallback, useRef, useState, type RefObject } from 'react';
+import { motion, useMotionValueEvent, useTransform, type MotionValue } from 'motion/react';
 import type { HomeData } from '@s5y/shared';
 import { heroState, bindPointer } from '../3d/heroState';
+import { HERO_CUES, HERO_FRAMES, HERO_STAGES, heroFocusMetres, heroStageAt } from '../3d/heroTimeline';
+import { useRenderLease } from '../3d/renderLease';
 import { useBoot } from '../app/loading';
 import { useSectionNav } from '../app/useSectionNav';
 import { Button, ButtonAnchor } from '../components/Button';
@@ -10,54 +12,110 @@ import { Magnetic } from '../components/Magnetic';
 import { RecTimecode } from '../components/RecTimecode';
 import { RevealLines } from '../components/Reveal';
 import { useInView } from '../hooks/useInView';
+import { useReducedMotion, useWideHero } from '../hooks/useMediaQuery';
 import { usePageVisible } from '../hooks/usePageVisible';
-import { useScrollProgress } from '../hooks/useScrollProgress';
+import { useScrollTimeline } from '../hooks/useScrollTimeline';
+import { hasWebGL } from '../lib/device';
+import { formatTimecode, pad2 } from '../lib/format';
 import { whatsappUrl } from '../lib/links';
 import { HeroStage } from './HeroStage';
 
 bindPointer();
 
+/** One line per choreography stage, shown on a backplate while that stage plays (the cut has the chapter card). */
+const STAGE_CAPTIONS = ['كل قصة تبدي بلقطة واضحة', 'كل شاشة قصة مكان', 'هسّه ادخل للعدسة'];
+
 export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
   const { site, heroVideos } = data;
   const ref = useRef<HTMLElement>(null);
   const focusRef = useRef<HTMLSpanElement>(null);
+  const tcRef = useRef<HTMLSpanElement>(null);
+  const frameRef = useRef<HTMLSpanElement>(null);
+  const stageRef = useRef<HTMLSpanElement>(null);
   const reduced = useReducedMotion();
+  const wide = useWideHero();
   const { dismissed } = useBoot();
   const go = useSectionNav();
   const inView = useInView(ref, { rootMargin: '0px' });
   const visible = usePageVisible();
 
-  const scrollYProgress = useScrollProgress(ref, 'contain');
+  // The long, choreographed runway needs the live studio; without WebGL or with reduced motion the hero keeps
+  // the short push-in (static frame + fades).
+  const [webgl] = useState(() => hasWebGL());
+  const [glDown, setGlDown] = useState(false);
+  const onUnavailable = useCallback(() => setGlDown(true), []);
+  const cinematic = webgl && !glDown && !reduced;
+  const cues = cinematic ? HERO_CUES.cinematic : HERO_CUES.simple;
+
+  const { progress } = useScrollTimeline(ref, 'contain');
   const [covered, setCovered] = useState(false);
-  useMotionValueEvent(scrollYProgress, 'change', (v) => {
+  const active = useRenderLease('hero', inView && visible && !covered);
+  const lastStage = useRef(-2);
+
+  useMotionValueEvent(progress, 'change', (v) => {
     heroState.progress = v;
     // fully faded to black: stop rendering the studio until the user scrolls back
-    setCovered(v > 0.93);
-    if (focusRef.current) focusRef.current.textContent = `${(3.2 - 2.75 * Math.min(1, v * 1.15)).toFixed(2)}M`;
+    setCovered(v > cues.covered);
+    if (focusRef.current) {
+      const metres = cinematic ? heroFocusMetres(v, !wide) : 3.2 - 2.75 * Math.min(1, v * 1.15);
+      focusRef.current.textContent = `${metres.toFixed(2)}M`;
+    }
+    // scroll-driven "footage" counter: the runway is a 12-second take
+    const frame = Math.round(v * HERO_FRAMES);
+    if (tcRef.current) tcRef.current.textContent = formatTimecode(frame / 24);
+    if (frameRef.current) frameRef.current.textContent = String(frame).padStart(4, '0');
+    const stage = cinematic ? heroStageAt(v) : -1;
+    if (stage !== lastStage.current && stageRef.current) {
+      lastStage.current = stage;
+      stageRef.current.textContent = stage < 0 ? 'SCENE 01 · TAKE 03' : `${pad2(stage + 1)} / ${pad2(HERO_STAGES.length)} · ${HERO_STAGES[stage]?.code ?? ''}`;
+    }
   });
 
-  const copyOpacity = useTransform(scrollYProgress, [0, 0.22], [1, 0]);
-  const copyY = useTransform(scrollYProgress, [0, 0.3], [0, reduced ? 0 : -90]);
-  const copyBlur = useTransform(scrollYProgress, [0, 0.25], ['blur(0px)', reduced ? 'blur(0px)' : 'blur(8px)']);
-  const blackout = useTransform(scrollYProgress, [0.7, 0.9], [0, 1]);
-  const chapterOpacity = useTransform(scrollYProgress, [0.84, 0.95], [0, 1]);
-  const chapterY = useTransform(scrollYProgress, [0.84, 1], [reduced ? 0 : 24, 0]);
-  const hudOpacity = useTransform(scrollYProgress, [0, 0.9, 1], [1, 1, 0]);
-  const cueOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
-  const enterOpacity = useTransform(scrollYProgress, [0.4, 0.52, 0.68, 0.78], [0, 1, 1, 0]);
+  const copyOpacity = useTransform(progress, [...cues.copy], [1, 0]);
+  const copyY = useTransform(progress, [...cues.copyMove], [0, reduced ? 0 : -90]);
+  const copyBlur = useTransform(progress, [...cues.copy], ['blur(0px)', reduced ? 'blur(0px)' : 'blur(8px)']);
+  const blackout = useTransform(progress, [...cues.blackout], [0, 1]);
+  const chapterOpacity = useTransform(progress, [...cues.chapter], [0, 1]);
+  const chapterY = useTransform(progress, [cues.chapter[0], 1], [reduced ? 0 : 24, 0]);
+  const hudOpacity = useTransform(progress, [...cues.hud], [1, 1, 0]);
+  const cueOpacity = useTransform(progress, [...cues.cue], [1, 0]);
+  // the take counter arrives once the scroll cue (desktop) / the copy (phones) has left the bottom of the frame
+  const scrubberOpacity = useTransform(progress, [0.025, 0.07], [0, 1]);
+  const scrub = useTransform(progress, [HERO_STAGES[0]?.from ?? 0, 1], [0, 1]);
 
   const brand = site.brand;
   const wa = whatsappUrl(site.contact.whatsapp, `هلا ${brand.name}، حاب أحجز تصوير`);
   const titleParts = brand.title.split('·').map((s) => s.trim()).filter(Boolean);
 
   return (
-    <section ref={ref} id="top" aria-label={`${brand.name} — ${brand.title}`} className="relative h-[210svh] md:h-[240svh]">
+    <section
+      ref={ref}
+      id="top"
+      aria-label={`${brand.name} — ${brand.title}`}
+      className={`relative ${cinematic ? 'h-[460svh] md:h-[500svh]' : 'h-[210svh] md:h-[240svh]'}`}
+    >
       <div className="sticky top-0 h-[100svh] overflow-hidden">
-        <HeroStage videos={heroVideos} accent={brand.accent} mark={brand.heroMark || brand.name} active={inView && visible && !covered} />
+        <HeroStage
+          videos={heroVideos}
+          accent={brand.accent}
+          mark={brand.heroMark || brand.name}
+          active={active}
+          decode={wide || inView}
+          onUnavailable={onUnavailable}
+        />
 
-        {/* legibility gradients */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(to_left,rgba(6,6,7,0.88)_0%,rgba(6,6,7,0.55)_30%,transparent_58%)] wide:block" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_8%,rgba(6,6,7,0.7)_45%,transparent)] wide:h-[34%]" />
+        {/* legibility gradients (scrims under every HUD line and the copy) */}
+        <motion.div
+          aria-hidden="true"
+          style={{ opacity: copyOpacity }}
+          className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(to_left,rgba(6,6,7,0.88)_0%,rgba(6,6,7,0.55)_30%,transparent_58%)] wide:block"
+        />
+        <motion.div
+          aria-hidden="true"
+          style={{ opacity: copyOpacity }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_8%,rgba(6,6,7,0.7)_45%,transparent)] wide:h-[34%]"
+        />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[32%] bg-[linear-gradient(to_top,rgba(6,6,7,0.9)_6%,rgba(6,6,7,0.45)_50%,transparent)] wide:h-[26%]" />
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-bg/80 to-transparent" />
 
         {/* viewfinder HUD */}
@@ -65,26 +123,34 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
           <div className="viewfinder absolute inset-0 opacity-70 [--vf-size:22px]" />
           <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-4 sm:inset-x-5 sm:top-5 short:hidden">
             <RecTimecode />
-            <p className="hud hidden text-text/60 sm:block">4K · 24FPS · ISO 800 · ƒ/1.4 · 1/50</p>
+            <p className="hud hidden text-soft sm:block">4K · 24FPS · ISO 800 · ƒ/1.4 · 1/50</p>
           </div>
-          <div className="absolute inset-x-4 bottom-4 hidden items-end justify-between gap-4 sm:inset-x-5 sm:bottom-5 sm:flex short:hidden">
-            <p className="hud text-text/55">
-              SCENE 01 <span className="text-muted">·</span> TAKE 03
+          <div className="absolute inset-x-4 bottom-4 hidden items-end justify-between gap-6 sm:inset-x-5 sm:bottom-5 sm:flex short:hidden">
+            <p className="hud text-soft">
+              <span ref={stageRef}>SCENE 01 · TAKE 03</span>
             </p>
-            <p className="hud text-text/60">
+            {cinematic && (
+              <motion.div style={{ opacity: scrubberOpacity }} className="hidden max-w-[24rem] flex-1 lg:flex">
+                <Scrubber scrub={scrub} tcRef={tcRef} frameRef={frameRef} className="flex w-full" />
+              </motion.div>
+            )}
+            <p className="hud text-soft">
               FOCUS <span ref={focusRef} className="text-accent">3.20M</span> <span className="text-muted">·</span> 35MM
             </p>
           </div>
+          {/* phones + tablets: a compact scrubber once the copy has left the frame */}
+          {cinematic && (
+            <motion.div style={{ opacity: scrubberOpacity }} className="absolute inset-x-4 bottom-4 sm:inset-x-5 sm:bottom-14 lg:hidden short:hidden">
+              <Scrubber scrub={scrub} className="flex" />
+            </motion.div>
+          )}
         </motion.div>
 
-        {/* "entering the lens" caption */}
-        <motion.p
-          style={{ opacity: enterOpacity }}
-          className="hud pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-text/70"
-          aria-hidden="true"
-        >
-          THROUGH THE LENS
-        </motion.p>
+        {/* stage captions — always on a backplate: the frame behind them is moving 3D */}
+        {cinematic &&
+          STAGE_CAPTIONS.map((text, i) => (
+            <StageCaption key={i} progress={progress} cue={cues.captions[i]} index={i} text={text} />
+          ))}
 
         {/* copy */}
         <motion.div
@@ -94,7 +160,7 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
           <div className="container-cine">
             <div className="max-w-xl wide:ms-0 wide:max-w-[min(40rem,46vw)] wide:pt-10 short:pt-[calc(var(--header-h)-0.5rem)]">
               <motion.p
-                className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text/80 sm:text-base short:mb-2 short:text-sm"
+                className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-soft sm:text-base short:mb-2 short:text-sm"
                 initial={{ opacity: 0, y: 12 }}
                 animate={dismissed ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
                 transition={{ duration: 0.9, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
@@ -123,7 +189,7 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
                 play={dismissed}
                 delay={0.62}
                 lines={[brand.tagline]}
-                className="mt-4 max-w-[34rem] font-display text-[clamp(1.35rem,3.4vw,2.2rem)] font-bold leading-[1.35] text-text/95 text-balance short:mt-2 short:text-[clamp(1.05rem,5.5svh,1.5rem)]"
+                className="mt-4 max-w-[34rem] font-display text-[clamp(1.35rem,3.4vw,2.2rem)] leading-[1.35] text-text text-balance short:mt-2 short:text-[clamp(1.05rem,5.5svh,1.5rem)]"
               />
               <motion.div
                 className="mt-8 flex flex-wrap items-center gap-3 short:mt-4"
@@ -152,7 +218,7 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
 
         {/* scroll cue */}
         <motion.div style={{ opacity: cueOpacity }} className="pointer-events-none absolute bottom-8 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-3 wide:flex short:hidden" aria-hidden="true">
-          <span className="text-xs text-muted">انزل وادخل للعدسة</span>
+          <span className="rounded-full bg-bg/80 px-3.5 py-1.5 text-sm text-soft">انزل وادخل للعدسة</span>
           <span className="relative h-12 w-px overflow-hidden bg-line-strong">
             <span className="scroll-cue-line absolute inset-0 bg-accent" />
           </span>
@@ -167,10 +233,77 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
           aria-hidden="true"
         >
           <span className="hud text-accent">SCENE 02 · CUT TO</span>
-          <span className="font-display text-[clamp(1.8rem,4.5vw,3.2rem)] font-extrabold text-text/90">من وراء العدسة</span>
+          <span className="font-display text-[clamp(1.8rem,4.5vw,3.2rem)] text-text">من وراء العدسة</span>
           <span className="h-10 w-px bg-gradient-to-b from-accent to-transparent" />
         </motion.div>
       </div>
     </section>
+  );
+}
+
+/** Scroll-driven take counter: four stage segments filling with the runway, plus timecode / frame readouts. */
+function Scrubber({
+  scrub,
+  tcRef,
+  frameRef,
+  className = '',
+}: {
+  scrub: MotionValue<number>;
+  tcRef?: RefObject<HTMLSpanElement | null>;
+  frameRef?: RefObject<HTMLSpanElement | null>;
+  className?: string;
+}) {
+  const start = HERO_STAGES[0]?.from ?? 0;
+  return (
+    <div dir="ltr" className={`items-center gap-3 ${className}`}>
+      {tcRef && (
+        <span className="hud text-soft">
+          TC <span ref={tcRef} className="text-text">00:00:00:00</span>
+        </span>
+      )}
+      <div className="relative h-px min-w-24 flex-1 bg-white/20">
+        <motion.span style={{ scaleX: scrub }} className="absolute inset-0 origin-left bg-accent" />
+        {HERO_STAGES.slice(1).map((s) => (
+          <span key={s.code} className="absolute -top-[3px] h-[7px] w-px bg-white/45" style={{ left: `${((s.from - start) / (1 - start)) * 100}%` }} />
+        ))}
+      </div>
+      {frameRef && (
+        <span className="hud text-soft">
+          FR <span ref={frameRef} className="text-text">0000</span>
+          <span className="text-muted"> / {String(HERO_FRAMES).padStart(4, '0')}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function StageCaption({
+  progress,
+  cue,
+  index,
+  text,
+}: {
+  progress: MotionValue<number>;
+  cue: readonly [number, number, number, number] | undefined;
+  index: number;
+  text: string;
+}) {
+  const range = cue ?? [2, 2, 2, 2];
+  const opacity = useTransform(progress, [...range], [0, 1, 1, 0]);
+  const y = useTransform(progress, [range[0], range[1], range[2], range[3]], [14, 0, 0, -10]);
+  const stage = HERO_STAGES[index];
+  return (
+    <motion.div
+      style={{ opacity, y }}
+      className="pointer-events-none absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.25rem)] flex justify-center px-4 sm:bottom-24"
+      aria-hidden="true"
+    >
+      <div className="max-w-[min(34rem,100%)] rounded-2xl bg-bg/80 px-5 py-3.5 text-center shadow-[0_20px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10 sm:px-7 sm:py-4">
+        <p className="hud text-accent">
+          {pad2(index + 1)} · {stage?.code}
+        </p>
+        <p className="mt-2.5 font-display text-[clamp(1.3rem,4.8vw,2rem)] leading-[1.3] text-text text-balance">{text}</p>
+      </div>
+    </motion.div>
   );
 }

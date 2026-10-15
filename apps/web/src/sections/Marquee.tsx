@@ -19,7 +19,7 @@ export function Marquee({ places }: { places: PlaceSummary[] }) {
             ) : (
               <span className="size-3 rounded-full" style={{ background: p.accentColor }} />
             )}
-            <span className="whitespace-nowrap font-display text-3xl font-extrabold text-text/90 sm:text-5xl">{p.name}</span>
+            <span className="whitespace-nowrap font-display text-[2rem] leading-[1.3] text-text sm:text-5xl sm:leading-[1.3]">{p.name}</span>
           </span>
           <SparkIcon size={18} className="text-accent" />
         </li>
@@ -29,10 +29,10 @@ export function Marquee({ places }: { places: PlaceSummary[] }) {
 
   return (
     <section aria-label="أماكن اشتغلت وياها" className="relative border-y border-line bg-surface/40 py-7 sm:py-9">
-      <div className="container-cine mb-5 flex items-center gap-3 text-sm text-muted">
+      <div className="container-cine mb-5 flex items-center gap-3">
         <span className="hud text-accent">CLIENTS</span>
         <span className="h-px w-6 bg-line-strong" aria-hidden="true" />
-        <span>اشتغلت ويا</span>
+        <span className="font-display text-[1.0625rem] leading-none text-soft">اشتغلت ويا</span>
       </div>
       <div className="marquee relative overflow-hidden [mask-image:linear-gradient(to_left,transparent,black_8%,black_92%,transparent)]">
         {reduced ? (

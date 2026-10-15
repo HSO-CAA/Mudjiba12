@@ -21,20 +21,20 @@ export function SectionHeading({ index, total, code, kicker, title, description,
     <header className="mb-10 flex flex-col gap-6 sm:mb-14 md:flex-row md:items-end md:justify-between">
       <div className="max-w-3xl">
         <Reveal>
-          <p className="mb-5 flex items-center gap-3 text-sm text-muted">
+          <p className="mb-5 flex items-center gap-3 text-muted">
             <span className="hud text-accent">
               {pad2(index)} / {pad2(total)}
             </span>
             <span className="h-px w-8 bg-line-strong" aria-hidden="true" />
             <span className="hud">{code}</span>
             <span className="h-px w-3 bg-line-strong" aria-hidden="true" />
-            <span>{kicker}</span>
+            <span className="font-display text-[1.0625rem] leading-none text-soft">{kicker}</span>
           </p>
         </Reveal>
         <RevealLines as="h2" id={id ? `${id}-title` : undefined} lines={lines} className="display-xl text-[clamp(2.1rem,6vw,4.6rem)] text-balance" />
         {description && (
           <Reveal delay={0.15}>
-            <div id={id ? `${id}-desc` : undefined} className="mt-5 max-w-xl text-base leading-8 text-muted sm:text-lg">
+            <div id={id ? `${id}-desc` : undefined} className="copy mt-5 max-w-xl">
               {description}
             </div>
           </Reveal>

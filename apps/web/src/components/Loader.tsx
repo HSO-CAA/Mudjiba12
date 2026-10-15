@@ -163,7 +163,7 @@ export function Loader() {
               <Aperture open={shown} />
             </div>
             <div className="flex flex-col items-center gap-3">
-              <div className="hud flex items-center gap-3 text-text/80">
+              <div className="hud flex items-center gap-3 text-text">
                 <span className="rec-dot inline-block size-1.5 rounded-full bg-rec" />
                 <span>FOCUS {pct}%</span>
                 <span className="text-muted">·</span>

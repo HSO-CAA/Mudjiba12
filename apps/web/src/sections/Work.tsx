@@ -24,13 +24,13 @@ export function Work({ places, index, total, totalVideos }: { places: PlaceSumma
           aside={
             places.length > 0 ? (
               <dl className="flex gap-8">
-                <div>
-                  <dt className="text-sm text-muted">مكان وبراند</dt>
-                  <dd className="font-display text-4xl font-extrabold text-text">{formatNumber(places.length)}</dd>
+                <div className="flex flex-col-reverse justify-end gap-2">
+                  <dt className="font-display text-base leading-tight text-soft">مكان وبراند</dt>
+                  <dd className="font-display text-[2.6rem] leading-none text-text">{formatNumber(places.length)}</dd>
                 </div>
-                <div>
-                  <dt className="text-sm text-muted">فيديو منشور</dt>
-                  <dd className="font-display text-4xl font-extrabold text-accent">{formatNumber(totalVideos)}</dd>
+                <div className="flex flex-col-reverse justify-end gap-2">
+                  <dt className="font-display text-base leading-tight text-soft">فيديو منشور</dt>
+                  <dd className="font-display text-[2.6rem] leading-none text-accent">{formatNumber(totalVideos)}</dd>
                 </div>
               </dl>
             ) : undefined

@@ -49,13 +49,13 @@ export function Plans({ plans, index, total }: { plans: PublicPlan[]; index: num
                   )}
                   <div className="relative flex items-start justify-between gap-3">
                     <div>
-                      <h3 id={`plan-${plan.id}`} className="font-display text-2xl font-extrabold">
+                      <h3 id={`plan-${plan.id}`} className="font-display text-[1.75rem] leading-tight">
                         {plan.name}
                       </h3>
-                      {plan.tagline && <p className="mt-2 text-sm leading-6 text-muted">{plan.tagline}</p>}
+                      {plan.tagline && <p className="mt-2 text-[0.9375rem] leading-7 text-soft">{plan.tagline}</p>}
                     </div>
                     {hl && (
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-[var(--accent-ink)]">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 font-display text-sm leading-none text-[var(--accent-ink)]">
                         <SparkIcon size={12} /> الأكثر طلباً
                       </span>
                     )}
@@ -63,19 +63,19 @@ export function Plans({ plans, index, total }: { plans: PublicPlan[]; index: num
 
                   <div className="relative mt-8 border-y border-line py-7">
                     {price.onRequest ? (
-                      <p className="whitespace-nowrap font-display text-4xl font-black leading-tight lg:text-[2.6rem]">{price.amount}</p>
+                      <p className="font-display text-[2.4rem] leading-tight">{price.amount}</p>
                     ) : (
                       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                        <span className="font-display text-5xl font-black leading-none sm:text-6xl">{price.amount}</span>
-                        <span className="text-lg font-semibold text-accent">{price.unit}</span>
+                        <span className="font-display text-5xl leading-none sm:text-6xl">{price.amount}</span>
+                        <span className="font-display text-xl text-accent">{price.unit}</span>
                       </p>
                     )}
-                    <p className="mt-3 text-sm text-muted">{periodLabel(plan.period)}</p>
+                    <p className="mt-3 font-display text-base text-soft">{periodLabel(plan.period)}</p>
                   </div>
 
                   <ul className="relative mt-7 flex-1 space-y-3.5">
                     {plan.features.map((f, k) => (
-                      <li key={k} className="flex items-start gap-3 leading-7 text-text/85">
+                      <li key={k} className="flex items-start gap-3 leading-7 text-text">
                         <span className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full ${hl ? 'bg-accent text-[var(--accent-ink)]' : 'bg-white/10 text-accent'}`}>
                           <CheckIcon size={13} strokeWidth={2.4} />
                         </span>

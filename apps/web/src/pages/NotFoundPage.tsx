@@ -16,7 +16,7 @@ export function NotFoundPage({ title = 'المشهد مو موجود', body = '�
       <div aria-hidden="true" className="viewfinder absolute inset-x-4 bottom-4 top-[calc(var(--header-h)+0.5rem)] opacity-60 sm:inset-x-6 sm:bottom-6 [--vf-size:26px]" />
       <div aria-hidden="true" className="absolute inset-x-8 top-[calc(var(--header-h)+1.5rem)] flex justify-between sm:inset-x-10">
         <RecTimecode />
-        <span className="hud text-muted">NO SIGNAL · 404</span>
+        <span className="hud text-soft">NO SIGNAL · 404</span>
       </div>
       <div className="container-cine relative text-center">
         <motion.p
@@ -24,14 +24,14 @@ export function NotFoundPage({ title = 'المشهد مو موجود', body = '�
           initial={{ opacity: 0, filter: 'blur(18px)', scale: 1.08 }}
           animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
           transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-gradient-to-b from-white/30 via-white/10 to-transparent bg-clip-text pb-2 font-display text-[clamp(7rem,30vw,22rem)] font-black leading-[0.8] text-transparent"
+          className="bg-gradient-to-b from-white/[0.55] via-white/[0.2] to-transparent bg-clip-text pb-2 font-display text-[clamp(7rem,30vw,22rem)] leading-[0.8] text-transparent"
           aria-hidden="true"
         >
           404
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}>
           <h1 className="display-xl mt-6 text-[clamp(2rem,6vw,4rem)]">{title}</h1>
-          <p className="mx-auto mt-4 max-w-md leading-8 text-muted">{body}</p>
+          <p className="copy mx-auto mt-4 max-w-md">{body}</p>
           <div className="mt-9 flex flex-wrap justify-center gap-3">
             <Link to="/" className={buttonClass('primary', 'lg')}>
               <span>رجوع للرئيسية</span>

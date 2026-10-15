@@ -13,6 +13,8 @@ interface VideoEntry {
   wantPlay: number;
   ready: boolean;
   listeners: Set<() => void>;
+  /** Pending teardown after the last release (see releaseVideo). */
+  teardown: number | null;
 }
 
 interface PosterEntry {
@@ -66,7 +68,7 @@ function acquireVideo(src: string, aspect: number): VideoEntry {
     video.src = src;
     const texture = new VideoTexture(video);
     texture.colorSpace = SRGBColorSpace;
-    const created: VideoEntry = { video, texture, refs: 0, wantPlay: 0, ready: false, listeners: new Set() };
+    const created: VideoEntry = { video, texture, refs: 0, wantPlay: 0, ready: false, listeners: new Set(), teardown: null };
     const markReady = () => {
       if (!created.ready && video.readyState >= 2) {
         coverTexture(texture, video.videoWidth / video.videoHeight, aspect);
@@ -79,22 +81,37 @@ function acquireVideo(src: string, aspect: number): VideoEntry {
     videos.set(key, created);
     entry = created;
   }
+  if (entry.teardown !== null) {
+    window.clearTimeout(entry.teardown);
+    entry.teardown = null;
+  }
   entry.refs++;
   return entry;
 }
 
+/** Grace period before an unused decoder is torn down. */
+const RELEASE_DELAY = 1200;
+
+/**
+ * Drops a reference; the decoder is torn down a moment after the last one goes. The delay matters twice:
+ * the screen still samples the texture until React swaps in the poster (a frame can render in between, and
+ * uploading an emptied <video> is a WebGL error), and a reel scrubbed away and straight back keeps its decoder.
+ */
 function releaseVideo(src: string, aspect: number): void {
   const key = `${src}|${aspect.toFixed(3)}`;
   const entry = videos.get(key);
   if (!entry) return;
   entry.refs--;
-  if (entry.refs <= 0) {
-    entry.video.pause();
+  if (entry.refs > 0 || entry.teardown !== null) return;
+  entry.video.pause();
+  entry.teardown = window.setTimeout(() => {
+    entry.teardown = null;
+    if (entry.refs > 0) return;
     entry.video.removeAttribute('src');
     entry.video.load();
     entry.texture.dispose();
-    videos.delete(key);
-  }
+    if (videos.get(key) === entry) videos.delete(key);
+  }, RELEASE_DELAY);
 }
 
 function acquirePoster(src: string, aspect: number): PosterEntry {

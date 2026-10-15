@@ -101,11 +101,11 @@ function ContactLine({ href, icon, label, value, external }: { href: string; ico
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       className="group flex items-center justify-between gap-4 border-b border-line py-4 transition hover:border-accent/60"
     >
-      <span className="flex items-center gap-3 text-muted transition group-hover:text-text">
+      <span className="flex items-center gap-3 font-display text-[1.0625rem] text-soft transition group-hover:text-text">
         <span className="text-accent">{icon}</span>
         {label}
       </span>
-      <span dir="ltr" className="font-mono text-sm text-text/90">
+      <span dir="ltr" className="font-mono text-[0.9375rem] text-text">
         {value}
       </span>
     </a>
@@ -167,7 +167,7 @@ function InquiryForm({ plans, source }: { plans: PublicPlan[]; source: string })
   };
 
   const fieldClass = (k: Field) =>
-    `peer w-full rounded-2xl border bg-white/[0.03] px-4 pb-3 pt-7 text-base text-text outline-none transition placeholder:text-transparent focus:bg-white/[0.05] ${
+    `peer w-full rounded-2xl border bg-white/[0.03] px-4 pb-3 pt-8 text-[1.0625rem] text-text outline-none transition placeholder:text-transparent focus:bg-white/[0.05] ${
       errors[k] ? 'border-rec/70 focus:border-rec' : 'border-line-strong focus:border-accent'
     }`;
 
@@ -189,8 +189,8 @@ function InquiryForm({ plans, source }: { plans: PublicPlan[]; source: string })
             <span className="grid size-20 place-items-center rounded-full bg-accent text-[var(--accent-ink)] shadow-[0_0_80px_-10px_var(--accent)]">
               <CheckIcon size={36} strokeWidth={2.2} />
             </span>
-            <h3 className="font-display text-3xl font-extrabold">وصلت رسالتك!</h3>
-            <p className="max-w-sm leading-7 text-muted">شكراً إلك. راح أرجعلك بأقرب وقت — وإذا مستعجل، راسلني واتساب.</p>
+            <h3 className="font-display text-[2rem] leading-tight">وصلت رسالتك!</h3>
+            <p className="copy max-w-sm">شكراً إلك. راح أرجعلك بأقرب وقت — وإذا مستعجل، راسلني واتساب.</p>
             <Button variant="ghost" onClick={() => setDone(false)}>
               أرسل رسالة ثانية
             </Button>
@@ -207,7 +207,7 @@ function InquiryForm({ plans, source }: { plans: PublicPlan[]; source: string })
             aria-describedby={formError ? `${uid}-form-error` : undefined}
           >
             <div className="mb-2 flex items-center justify-between">
-              <p className="font-display text-xl font-bold">ابدأ مشروعك</p>
+              <p className="font-display text-[1.5rem] leading-tight">ابدأ مشروعك</p>
               <span className="hud text-muted">BRIEF · 01</span>
             </div>
 
@@ -251,7 +251,7 @@ function InquiryForm({ plans, source }: { plans: PublicPlan[]; source: string })
             </div>
 
             {formError && (
-              <p id={`${uid}-form-error`} role="alert" className="rounded-xl border border-rec/40 bg-rec/10 px-4 py-3 text-sm text-text">
+              <p id={`${uid}-form-error`} role="alert" className="rounded-xl border border-rec/50 bg-rec/15 px-4 py-3 text-[0.9375rem] text-text">
                 {formError}
               </p>
             )}
@@ -259,7 +259,7 @@ function InquiryForm({ plans, source }: { plans: PublicPlan[]; source: string })
             <Button type="submit" size="lg" className="mt-2 w-full" disabled={mutation.isPending} icon={mutation.isPending ? <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <SendIcon size={18} />}>
               {mutation.isPending ? 'جاري الإرسال…' : 'أرسل الرسالة'}
             </Button>
-            <p className="text-center text-xs text-muted">بياناتك تنستخدم بس حتى أتواصل وياك بخصوص طلبك.</p>
+            <p className="text-center text-sm leading-6 text-soft">بياناتك تنستخدم بس حتى أتواصل وياك بخصوص طلبك.</p>
           </motion.form>
         )}
       </AnimatePresence>
@@ -272,12 +272,12 @@ function FloatingField({ id, label, error, children }: { id: string; label: stri
     <div>
       <div className="relative">
         {children}
-        <label htmlFor={id} className="pointer-events-none absolute start-4 top-2.5 text-xs text-muted transition peer-focus:text-accent">
+        <label htmlFor={id} className="pointer-events-none absolute start-4 top-2.5 text-sm font-semibold leading-5 text-muted transition peer-focus:text-accent">
           {label}
         </label>
       </div>
       {error && (
-        <p id={`${id}-err`} className="mt-1.5 ps-1 text-sm text-[#ff7a70]">
+        <p id={`${id}-err`} className="mt-1.5 ps-1 text-[0.9375rem] text-danger">
           {error}
         </p>
       )}

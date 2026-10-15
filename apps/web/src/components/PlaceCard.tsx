@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring } from 'motion/react';
 import type { PlaceSummary } from '@s5y/shared';
 import { pad2, videosLabel } from '../lib/format';
+import { placeAccentVars } from '../lib/color';
 import { useCoarsePointer } from '../hooks/useMediaQuery';
 import { useInView } from '../hooks/useInView';
 import { FadeImage, PreviewVideo } from './Media';
@@ -43,7 +44,7 @@ export function PlaceCard({ place, index, className = '' }: Props) {
           ref={ref}
           to={`/work/${place.slug}`}
           className="group relative block h-full min-h-[24rem] overflow-hidden rounded-[1.6rem] bg-surface ring-1 ring-white/[0.07] transition-shadow duration-700 focus-visible:outline-offset-4"
-          style={{ ['--place-accent' as string]: place.accentColor, boxShadow: active ? `0 30px 90px -40px ${place.accentColor}` : undefined }}
+          style={{ ...placeAccentVars(place.accentColor), boxShadow: active ? `0 30px 90px -40px ${place.accentColor}` : undefined }}
           onPointerEnter={() => setHover(true)}
           onPointerLeave={() => {
             setHover(false);
@@ -81,7 +82,7 @@ export function PlaceCard({ place, index, className = '' }: Props) {
               active={active}
               className="absolute inset-0 h-full w-full object-cover"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,6,7,0.96)_6%,rgba(6,6,7,0.55)_42%,rgba(6,6,7,0.1)_70%,rgba(6,6,7,0.35))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_0%,rgba(6,6,7,0.92)_44%,rgba(6,6,7,0.55)_66%,rgba(6,6,7,0.1)_82%,rgba(6,6,7,0.5))]" />
             <div className="absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-100 bg-[radial-gradient(90%_60%_at_50%_110%,color-mix(in_oklab,var(--place-accent)_45%,transparent),transparent_70%)]" />
             {tilt && <motion.div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: glare }} />}
           </div>
@@ -102,19 +103,19 @@ export function PlaceCard({ place, index, className = '' }: Props) {
                   {place.name.slice(0, 1)}
                 </span>
               )}
-              <span className="rounded-full bg-black/45 px-3 py-1.5 text-xs text-text/90 ring-1 ring-white/10 backdrop-blur">
+              <span className="rounded-full bg-bg/75 px-3.5 py-2 font-display text-[0.9375rem] leading-none text-text ring-1 ring-white/10 backdrop-blur">
                 {videosLabel(place.videoCount)}
               </span>
             </div>
-            <span className="hud text-text/60">
+            <span className="hud hud-plate text-text">
               {pad2(index + 1)}
-              {place.year ? <span className="text-muted"> · {place.year}</span> : null}
+              {place.year ? <span className="text-soft"> · {place.year}</span> : null}
             </span>
           </div>
 
           {/* bottom */}
           <div className="absolute inset-x-0 bottom-0 p-6 sm:p-7">
-            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text/75">
+            <div className="text-on-media mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[0.9375rem] text-text">
               {place.category && (
                 <span className="flex items-center gap-2">
                   <span className="size-1.5 rounded-full" style={{ background: place.accentColor }} aria-hidden="true" />
@@ -123,22 +124,22 @@ export function PlaceCard({ place, index, className = '' }: Props) {
               )}
               {place.location && (
                 <span className="flex items-center gap-1.5">
-                  <MapPinIcon size={14} className="text-muted" />
+                  <MapPinIcon size={15} className="text-place" />
                   {place.location}
                 </span>
               )}
             </div>
             <div className="flex items-end justify-between gap-4">
-              <h3 className="font-display text-[clamp(1.7rem,3.2vw,2.6rem)] font-extrabold leading-[1.1]">{place.name}</h3>
+              <h3 className="text-on-media font-display text-[clamp(1.9rem,3.4vw,2.8rem)] leading-[1.2]">{place.name}</h3>
               <span
-                className="grid size-12 shrink-0 translate-y-1 place-items-center rounded-full bg-white/10 text-text ring-1 ring-white/15 backdrop-blur transition-all duration-500 group-hover:bg-[var(--place-accent)] group-hover:text-black"
+                className="grid size-12 shrink-0 translate-y-1 place-items-center rounded-full bg-bg/60 text-text ring-1 ring-white/20 backdrop-blur transition-all duration-500 group-hover:bg-[var(--place-accent)] group-hover:text-[var(--place-ink)]"
                 aria-hidden="true"
               >
                 <ArrowUpLeftIcon size={20} />
               </span>
             </div>
             {place.summary && (
-              <p className="mt-3 line-clamp-2 max-w-md text-sm leading-7 text-muted transition-colors duration-500 group-hover:text-text/80">
+              <p className="text-on-media mt-3 line-clamp-2 max-w-md text-[0.9375rem] leading-7 text-soft transition-colors duration-500 group-hover:text-text">
                 {place.summary}
               </p>
             )}

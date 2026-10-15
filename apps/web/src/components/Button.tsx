@@ -4,19 +4,20 @@ import { Link, type LinkProps } from 'react-router';
 type Variant = 'primary' | 'ghost' | 'quiet';
 type Size = 'md' | 'lg';
 
+/* Labels are short UI text → the display face (ZAIN). Text on the accent fill uses --accent-ink (picked by contrast). */
 const base =
-  'group/btn relative inline-flex select-none items-center justify-center gap-2.5 rounded-full font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-300 ease-[cubic-bezier(.16,1,.3,1)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50';
+  'group/btn relative inline-flex select-none items-center justify-center gap-2.5 rounded-full font-display leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-300 ease-[cubic-bezier(.16,1,.3,1)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60';
 
 const variants: Record<Variant, string> = {
   primary:
     'bg-accent text-[var(--accent-ink)] shadow-[0_10px_40px_-12px_var(--accent)] hover:shadow-[0_14px_60px_-10px_var(--accent)] hover:brightness-110',
-  ghost: 'border border-line-strong bg-white/[0.03] text-text backdrop-blur-md hover:border-accent/70 hover:bg-white/[0.06]',
-  quiet: 'text-text/90 hover:text-accent',
+  ghost: 'border border-line-strong bg-bg/55 text-text backdrop-blur-md hover:border-accent/70 hover:bg-bg/75',
+  quiet: 'text-text hover:text-accent',
 };
 
 const sizes: Record<Size, string> = {
-  md: 'h-11 px-5 text-[0.95rem]',
-  lg: 'h-14 px-7 text-base sm:text-[1.05rem]',
+  md: 'h-11 px-5 text-[1.0625rem]',
+  lg: 'h-14 px-7 text-[1.125rem] sm:text-[1.1875rem]',
 };
 
 export function buttonClass(variant: Variant = 'primary', size: Size = 'md', extra = ''): string {

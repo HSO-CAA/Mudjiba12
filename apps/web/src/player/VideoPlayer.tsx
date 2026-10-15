@@ -400,19 +400,19 @@ export default function VideoPlayer({ session, onClose }: Props) {
           src={video.posterUrl}
           alt=""
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-25 blur-3xl"
+          className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-[0.18] blur-3xl"
         />
       )}
 
       {/* top bar */}
       <div className="relative z-10 flex items-center justify-between gap-4 px-4 pt-4 sm:px-6 sm:pt-5">
         <div className="min-w-0">
-          <p className="hud text-muted">
+          <p className="hud text-soft">
             <span className="text-accent">REEL</span> {counter}
           </p>
-          <h2 className="mt-1.5 truncate font-display text-base font-bold sm:text-lg">{title}</h2>
+          <h2 className="mt-1.5 truncate pb-1 font-display text-[1.25rem] leading-[1.35] sm:text-[1.4rem]">{title}</h2>
           {place && (
-            <Link to={`/work/${place.slug}`} onClick={handleClose} className="mt-0.5 inline-block text-sm text-muted transition hover:text-accent">
+            <Link to={`/work/${place.slug}`} onClick={handleClose} className="inline-block font-display text-base leading-snug text-soft transition hover:text-accent">
               {place.name}
             </Link>
           )}
@@ -483,7 +483,7 @@ export default function VideoPlayer({ session, onClose }: Props) {
 
             {/* controls */}
             <div
-              className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-3 pb-3 pt-14 transition-opacity duration-300 sm:px-4 ${
+              className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pb-3 pt-14 transition-opacity duration-300 sm:px-4 ${
                 chrome || !playing ? 'opacity-100' : 'pointer-events-none opacity-0'
               }`}
             >
@@ -522,8 +522,8 @@ export default function VideoPlayer({ session, onClose }: Props) {
                 <CtrlButton label={muted ? 'تشغيل الصوت' : 'كتم الصوت'} onClick={toggleMute}>
                   {muted ? <MuteIcon size={19} /> : <VolumeIcon size={19} />}
                 </CtrlButton>
-                <span className="hud ms-1 text-text/85">
-                  {formatDuration(time)} <span className="text-muted">/ {formatDuration(duration)}</span>
+                <span className="hud ms-1 text-text">
+                  {formatDuration(time)} <span className="text-soft">/ {formatDuration(duration)}</span>
                 </span>
                 <span className="flex-1" />
                 <CtrlButton label={isFullscreen ? 'الخروج من ملء الشاشة' : 'ملء الشاشة'} onClick={toggleFullscreen}>
@@ -548,7 +548,7 @@ export default function VideoPlayer({ session, onClose }: Props) {
       </div>
 
       {videos.length > 1 && (
-        <p className="relative z-10 pb-4 text-center text-xs text-muted sm:hidden">اسحب لفوق للفيديو التالي</p>
+        <p className="relative z-10 pb-4 text-center font-display text-[0.9375rem] text-soft sm:hidden">اسحب لفوق للفيديو التالي</p>
       )}
     </motion.div>,
     document.body,
@@ -562,7 +562,7 @@ function CtrlButton({ label, onClick, children }: { label: string; onClick: () =
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="grid size-10 place-items-center rounded-full text-text/90 transition hover:bg-white/10 hover:text-text"
+      className="grid size-10 place-items-center rounded-full text-text transition hover:bg-white/10"
     >
       {children}
     </button>

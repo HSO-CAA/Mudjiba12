@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { PublicVideo } from '@s5y/shared';
 import { useBootTask } from '../app/loading';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -11,11 +11,16 @@ interface Props {
   videos: PublicVideo[];
   accent: string;
   mark: string;
+  /** Holds the render lease: on screen, tab visible, not covered by the cut to black. */
   active: boolean;
+  /** Keep the screens' video decoders (released on phones while the hero is off screen). */
+  decode: boolean;
+  /** WebGL is unavailable or the scene died (context loss / error): the hero switches to its static layout. */
+  onUnavailable: () => void;
 }
 
 /** The WebGL studio, with a still-beautiful static fallback (no WebGL, errors, context loss, while loading). */
-export function HeroStage({ videos, accent, mark, active }: Props) {
+export function HeroStage({ videos, accent, mark, active, decode, onUnavailable }: Props) {
   const [webgl] = useState(() => hasWebGL());
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
@@ -29,6 +34,9 @@ export function HeroStage({ videos, accent, mark, active }: Props) {
 
   const onReady = useCallback(() => setReady(true), []);
   const onFatal = useCallback(() => setFailed(true), []);
+  useEffect(() => {
+    if (!useGL) onUnavailable();
+  }, [useGL, onUnavailable]);
   const fallback = <HeroFallback videos={videos} accent={accent} />;
 
   if (!useGL) return fallback;
@@ -43,6 +51,7 @@ export function HeroStage({ videos, accent, mark, active }: Props) {
             tier={tier}
             lockTier={lockTier}
             active={active}
+            decode={decode}
             compact={compact}
             reducedMotion={reduced}
             onReady={onReady}

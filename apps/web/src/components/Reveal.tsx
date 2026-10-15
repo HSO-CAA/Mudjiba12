@@ -60,7 +60,7 @@ export function RevealLines({ lines, className, lineClassName, delay = 0, play, 
   return (
     <Tag className={className} id={id}>
       {lines.map((line, i) => (
-        <span key={i} className="-my-[0.14em] block overflow-hidden py-[0.14em]">
+        <span key={i} className="-my-[0.3em] block overflow-hidden py-[0.3em]">
           <motion.span
             className={`block ${lineClassName ?? ''}`}
             initial="hidden"

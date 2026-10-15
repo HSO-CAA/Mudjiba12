@@ -28,23 +28,23 @@ export function About({ site, index, total }: { site: PublicSite; index: number;
               <FadeImage src={about.avatarUrl} alt={`${brand.name} — ${brand.title}`} className="h-full w-full object-cover" />
             ) : (
               <div className="grid h-full w-full place-items-center bg-[radial-gradient(60%_60%_at_50%_40%,color-mix(in_oklab,var(--accent)_30%,transparent),#0b0b0d)]">
-                <span dir="ltr" className="font-display text-7xl font-black text-text/90">
+                <span dir="ltr" className="font-display text-7xl text-text">
                   {brand.heroMark || brand.name}
                 </span>
               </div>
             )}
-            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,6,7,0.7),transparent_45%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,6,7,0.75),transparent_40%,transparent_75%,rgba(6,6,7,0.5))]" />
             <div aria-hidden="true" className="viewfinder absolute inset-5 [--vf-size:26px] [--vf-w:2px]" />
             <div aria-hidden="true" className="absolute left-1/2 top-[42%] size-16 -translate-x-1/2 -translate-y-1/2 border border-accent/80" />
-            <div className="absolute inset-x-8 top-8 flex items-center justify-between">
-              <span className="hud flex items-center gap-2 text-text/85">
+            <div className="absolute inset-x-7 top-7 flex items-center justify-between">
+              <span className="hud hud-plate flex items-center gap-2 text-text">
                 <span className="rec-dot inline-block size-1.5 rounded-full bg-rec" /> CAM A
               </span>
-              <span className="hud text-text/60">ƒ/1.8 · 85MM</span>
+              <span className="hud hud-plate text-text">ƒ/1.8 · 85MM</span>
             </div>
-            <div className="absolute inset-x-8 bottom-8 flex items-center justify-between">
-              <span className="hud text-text/70">@{brand.handle}</span>
-              <span className="hud text-accent">AF·C</span>
+            <div className="absolute inset-x-7 bottom-7 flex items-center justify-between">
+              <span className="hud hud-plate text-text">@{brand.handle}</span>
+              <span className="hud hud-plate text-accent">AF·C</span>
             </div>
           </div>
         </Reveal>
@@ -52,21 +52,21 @@ export function About({ site, index, total }: { site: PublicSite; index: number;
         <div>
           <SectionHeading id="about" index={index} total={total} code="ABOUT" kicker="نبذة" title={about.heading} />
           <Reveal delay={0.1}>
-            <div className="-mt-4 space-y-5 text-lg leading-9 text-text/80 sm:text-xl sm:leading-10">
+            <div className="copy -mt-4 space-y-5 sm:text-[1.1875rem]">
               {paragraphs.map((p, i) => (
                 <p key={i}>{p}</p>
               ))}
             </div>
           </Reveal>
           <Reveal delay={0.18}>
-            <ul className="mt-8 flex flex-wrap gap-3 text-sm">
+            <ul className="mt-8 flex flex-wrap gap-3 text-[0.9375rem]">
               {about.location && (
-                <li className="flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 text-text/85">
+                <li className="flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 text-text">
                   <MapPinIcon size={16} className="text-accent" /> {about.location}
                 </li>
               )}
               {about.since && (
-                <li className="flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 text-text/85">
+                <li className="flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 text-text">
                   <CalendarIcon size={16} className="text-accent" /> أصوّر من {formatYear(about.since)}
                   {years ? ` · ${yearsLabel(years)} خبرة` : ''}
                 </li>
@@ -77,11 +77,11 @@ export function About({ site, index, total }: { site: PublicSite; index: number;
             <Reveal delay={0.24}>
               <dl className="mt-12 grid grid-cols-2 gap-x-6 gap-y-8 border-t border-line pt-10 sm:grid-cols-3">
                 {stats.map((s, i) => (
-                  <div key={`${s.label}-${i}`} className="flex min-w-0 flex-col-reverse">
-                    <dt className="mt-3 text-sm leading-6 text-muted">{s.label}</dt>
+                  <div key={`${s.label}-${i}`} className="flex min-w-0 flex-col-reverse justify-end">
+                    <dt className="mt-3 font-display text-[1.0625rem] leading-snug text-soft">{s.label}</dt>
                     <dd
                       dir={numeralsFor(s.suffix) === 'latn' ? 'ltr' : undefined}
-                      className={`flex items-baseline gap-1 font-display text-[clamp(2.4rem,5vw,3.6rem)] font-black leading-none ${numeralsFor(s.suffix) === 'latn' ? 'justify-end' : ''}`}
+                      className={`flex items-baseline gap-1 font-display text-[clamp(2.4rem,5vw,3.6rem)] leading-none ${numeralsFor(s.suffix) === 'latn' ? 'justify-end' : ''}`}
                     >
                       <Counter value={s.value} numerals={numeralsFor(s.suffix)} />
                       {s.suffix && <span className="text-accent">{s.suffix}</span>}
