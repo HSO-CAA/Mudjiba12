@@ -298,6 +298,8 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
   useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
 
   const pose = useMemo(() => trackSample(LENS_CHANNELS), []);
+  /** The optical stack whose reflections clear as the camera pushes through (see the frame loop). */
+  const optics = useMemo(() => [mats.glass, mats.coatRear, mats.coatMid, mats.coatDeep, mats.rearGlass, mats.blade], [mats]);
   const bladeColor = useMemo(() => new Color('#3a3a41'), []);
   const glowColor = useMemo(() => new Color(accent).lerp(new Color('#fff4e2'), 0.45).multiplyScalar(2.4), [accent]);
 
@@ -348,16 +350,39 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
     for (const b of blades.current) if (b) b.position.y = offset;
 
     // pushing in: the coating reflections clear and the light behind the iris comes up, so the blades read
-    // as a closing silhouette that ends in a pinpoint. (With scene.environment three.js ignores a material's
-    // envMapIntensity, so the reflections are faded through opacity / specular strength instead. clearcoat and
-    // iridescence stay above 0: crossing 0 would switch shader defines and recompile mid-scroll.)
-    const clear = interactive ? smoothstep(0.66, 0.78, t) : 0;
+    // as a closing silhouette that ends in a pinpoint. (clearcoat and iridescence stay above 0: crossing 0 would
+    // switch shader defines and recompile mid-scroll.)
+    const clear = interactive ? smoothstep(0.65, 0.74, t) : 0;
     const coat = 1 - clear;
+    // With only scene.environment set, three.js drives every material's reflections by scene.environmentIntensity;
+    // bound to the same cube explicitly, the glass stack's own envMapIntensity applies and can fade on its own —
+    // otherwise the studio's ring light and softboxes stay mirrored in the front element over the closing iris.
+    const env = state.scene.environment;
+    if (interactive && env) {
+      for (let i = 0; i < optics.length; i++) {
+        const m = optics[i] as (typeof optics)[number];
+        if (m.envMap !== env) {
+          m.envMap = env;
+          m.needsUpdate = true;
+        }
+      }
+      const level = state.scene.environmentIntensity;
+      mats.glass.envMapIntensity = level * coat;
+      mats.coatRear.envMapIntensity = level * coat;
+      mats.coatMid.envMapIntensity = level * coat;
+      mats.coatDeep.envMapIntensity = level * coat;
+      mats.rearGlass.envMapIntensity = level * coat;
+      mats.blade.envMapIntensity = level * (1 - 0.85 * clear);
+    }
     mats.coatRear.opacity = coat;
     mats.coatMid.opacity = coat;
     mats.coatDeep.opacity = coat;
-    mats.glass.specularIntensity = 1 - 0.9 * clear;
+    mats.glass.specularIntensity = 1 - 0.95 * clear;
     mats.glass.clearcoat = Math.max(0.002, 1 - clear);
+    // the transmissive front element would refract the bright iris light into arcs round its rim: it flattens
+    // into a plain window (no refraction offset, no thin-film tint) as the blades take over the frame
+    mats.glass.thickness = 0.55 * coat;
+    mats.glass.iridescence = Math.max(0.002, coat);
     if (!profile.transmission) mats.glass.opacity = 0.62 - 0.42 * clear;
     // metal blades mirror the studio lights; darkened they read as a clean silhouette against the glow
     mats.blade.color.copy(bladeColor).multiplyScalar(1 - 0.8 * clear);

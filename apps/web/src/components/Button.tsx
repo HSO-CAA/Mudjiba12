@@ -4,14 +4,15 @@ import { Link, type LinkProps } from 'react-router';
 type Variant = 'primary' | 'ghost' | 'quiet';
 type Size = 'md' | 'lg';
 
-/* Labels are short UI text → the display face (ZAIN). Text on the accent fill uses --accent-ink (picked by contrast). */
+/* Labels are short UI text → the display face (ZAIN). Text on the accent fill uses --accent-ink (picked by contrast);
+   the ghost fill stays ≥ 70% stage-black so its label keeps ≥ 7:1 even over a white video frame. */
 const base =
   'group/btn relative inline-flex select-none items-center justify-center gap-2.5 rounded-full font-display leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-300 ease-[cubic-bezier(.16,1,.3,1)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60';
 
 const variants: Record<Variant, string> = {
   primary:
     'bg-accent text-[var(--accent-ink)] shadow-[0_10px_40px_-12px_var(--accent)] hover:shadow-[0_14px_60px_-10px_var(--accent)] hover:brightness-110',
-  ghost: 'border border-line-strong bg-bg/55 text-text backdrop-blur-md hover:border-accent/70 hover:bg-bg/75',
+  ghost: 'border border-line-strong bg-bg/70 text-text backdrop-blur-md hover:border-accent/70 hover:bg-bg/85',
   quiet: 'text-text hover:text-accent',
 };
 

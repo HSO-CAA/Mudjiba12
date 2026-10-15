@@ -105,7 +105,7 @@ function ContactLine({ href, icon, label, value, external }: { href: string; ico
         <span className="text-accent">{icon}</span>
         {label}
       </span>
-      <span dir="ltr" className="font-mono text-[0.9375rem] text-text">
+      <span dir="ltr" className="font-sans text-base font-semibold text-text">
         {value}
       </span>
     </a>

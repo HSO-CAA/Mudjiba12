@@ -90,6 +90,8 @@
     color: var(--color-text);
     font-family: var(--font-sans);
     font-weight: 500;
+    /* Arabic needs more air than Latin (dots and marks above/below); anything without its own leading gets 1.7 */
+    line-height: 1.7;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;

@@ -6,7 +6,7 @@ import { createTrack, sampleTrack, trackSample } from './track';
  *
  *   rest      0.00 – 0.07  the studio at rest, copy on screen
  *   focus     0.07 – 0.30  camera arcs around the lens while the focus ring pulls focus
- *   formation 0.30 – 0.58  the phones break formation into a rising spiral, the camera pulls back to reveal it
+ *   formation 0.30 – 0.58  the phones break formation into an orbit around the lens, the camera pulls back to reveal it
  *   iris      0.58 – 0.86  the phones open into a halo, the iris stops down, the camera pushes through the lens
  *   cut       0.86 – 1.00  black + chapter card, the page scrolls on
  */
@@ -61,10 +61,10 @@ export const HERO_CUES = {
   },
 };
 
-/** Phone formations: rest arc → rising spiral → halo around the lens front (start/end of each flight). */
+/** Phone formations: rest arc → orbit around the lens → halo around the lens front (start/end of each flight). */
 export const HERO_FORMATION = {
-  spiral: [0.3, 0.44] as const,
-  spiralStagger: 0.012,
+  orbit: [0.3, 0.44] as const,
+  orbitStagger: 0.012,
   halo: [0.54, 0.625] as const,
   haloStagger: 0.006,
   /** The halo opens and rushes past the camera as it pushes into the lens. */
@@ -83,8 +83,8 @@ const WIDE_CAMERA = createTrack(CAMERA_CHANNELS, [
   { t: 0, az: 0.0213, el: 0.0319, d: 9.41, fovK: 1, roll: 0, frame: 1, lookX: 0, lookY: 1.25, lookZ: 0 },
   { t: 0.07, az: 0, el: 0.06, d: 8.7, fovK: 1, roll: 0, frame: 0.5, lookX: 0, lookY: 1.28, lookZ: 0 },
   { t: 0.3, hold: true, az: -0.74, el: 0.17, d: 5.5, fovK: 1, roll: -0.05, frame: 0, lookX: 0, lookY: 1.3, lookZ: 0.05 },
-  { t: 0.42, az: -0.42, el: 0.25, d: 9.2, fovK: 1.06, roll: 0.02, frame: 0, lookX: 0, lookY: 1.95, lookZ: 0 },
-  { t: 0.555, hold: true, az: 0.16, el: 0.17, d: 13, fovK: 1.06, roll: 0, frame: 0, lookX: 0, lookY: 2.3, lookZ: 0 },
+  { t: 0.42, az: -0.42, el: 0.25, d: 9.2, fovK: 1.06, roll: 0.02, frame: 0, lookX: 0.45, lookY: 2.2, lookZ: 0 },
+  { t: 0.555, hold: true, az: 0.16, el: 0.17, d: 13, fovK: 1.06, roll: 0, frame: 0, lookX: 0.85, lookY: 2.6, lookZ: 0 },
   { t: 0.665, hold: true, az: 0, el: 0.03, d: 9.6, fovK: 1, roll: 0, frame: 0, lookX: 0, lookY: 1.32, lookZ: 0 },
   { t: 0.81, az: 0, el: 0, d: 1.75, fovK: 1.6, roll: 0.3, frame: 0, lookX: 0, lookY: 1.3, lookZ: 0 },
   { t: 0.88, hold: true, az: 0, el: 0, d: 0.5, fovK: 2.15, roll: 0.55, frame: 0, lookX: 0, lookY: 1.3, lookZ: 0 },

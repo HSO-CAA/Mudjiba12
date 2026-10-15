@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useMotionValueEvent, useTransform, type MotionValue } from 'motion/react';
 import type { HomeData } from '@s5y/shared';
 import { heroState, bindPointer } from '../3d/heroState';
@@ -28,10 +28,8 @@ const STAGE_CAPTIONS = ['كل قصة تبدي بلقطة واضحة', 'كل شا
 export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
   const { site, heroVideos } = data;
   const ref = useRef<HTMLElement>(null);
-  const focusRef = useRef<HTMLSpanElement>(null);
-  const tcRef = useRef<HTMLSpanElement>(null);
-  const frameRef = useRef<HTMLSpanElement>(null);
-  const stageRef = useRef<HTMLSpanElement>(null);
+  /** Scroll-driven HUD readouts (`data-hud="…"`): written straight to the DOM on scroll, never through React. */
+  const hud = useRef<Record<HudKey, HTMLElement[]>>({ focus: [], tc: [], frame: [], stage: [] });
   const reduced = useReducedMotion();
   const wide = useWideHero();
   const { dismissed } = useBoot();
@@ -52,23 +50,42 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
   const active = useRenderLease('hero', inView && visible && !covered);
   const lastStage = useRef(-2);
 
+  const lastFrame = useRef(-1);
+  const writeHud = useCallback(
+    (v: number, force = false) => {
+      const els = hud.current;
+      const metres = cinematic ? heroFocusMetres(v, !wide) : 3.2 - 2.75 * Math.min(1, v * 1.15);
+      setText(els.focus, `${metres.toFixed(2)}M`);
+      // scroll-driven "footage" counter: the runway is a 12-second take at 24 fps
+      const frame = Math.round(v * HERO_FRAMES);
+      if (frame !== lastFrame.current || force) {
+        lastFrame.current = frame;
+        setText(els.tc, formatTimecode(frame / 24));
+        setText(els.frame, String(frame).padStart(4, '0'));
+      }
+      const stage = cinematic ? heroStageAt(v) : -1;
+      if (stage !== lastStage.current || force) {
+        lastStage.current = stage;
+        setText(els.stage, stage < 0 ? 'SCENE 01 · TAKE 03' : `${pad2(stage + 1)} / ${pad2(HERO_STAGES.length)} · ${HERO_STAGES[stage]?.code ?? ''}`);
+      }
+    },
+    [cinematic, wide],
+  );
+
+  // (re)collect the readouts whenever the layout swaps them (cinematic ↔ simple, phone ↔ desktop)
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const pick = (key: HudKey) => Array.from(root.querySelectorAll<HTMLElement>(`[data-hud="${key}"]`));
+    hud.current = { focus: pick('focus'), tc: pick('tc'), frame: pick('frame'), stage: pick('stage') };
+    writeHud(progress.get(), true);
+  }, [writeHud, progress]);
+
   useMotionValueEvent(progress, 'change', (v) => {
     heroState.progress = v;
     // fully faded to black: stop rendering the studio until the user scrolls back
     setCovered(v > cues.covered);
-    if (focusRef.current) {
-      const metres = cinematic ? heroFocusMetres(v, !wide) : 3.2 - 2.75 * Math.min(1, v * 1.15);
-      focusRef.current.textContent = `${metres.toFixed(2)}M`;
-    }
-    // scroll-driven "footage" counter: the runway is a 12-second take
-    const frame = Math.round(v * HERO_FRAMES);
-    if (tcRef.current) tcRef.current.textContent = formatTimecode(frame / 24);
-    if (frameRef.current) frameRef.current.textContent = String(frame).padStart(4, '0');
-    const stage = cinematic ? heroStageAt(v) : -1;
-    if (stage !== lastStage.current && stageRef.current) {
-      lastStage.current = stage;
-      stageRef.current.textContent = stage < 0 ? 'SCENE 01 · TAKE 03' : `${pad2(stage + 1)} / ${pad2(HERO_STAGES.length)} · ${HERO_STAGES[stage]?.code ?? ''}`;
-    }
+    writeHud(v);
   });
 
   const copyOpacity = useTransform(progress, [...cues.copy], [1, 0]);
@@ -127,21 +144,21 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
           </div>
           <div className="absolute inset-x-4 bottom-4 hidden items-end justify-between gap-6 sm:inset-x-5 sm:bottom-5 sm:flex short:hidden">
             <p className="hud text-soft">
-              <span ref={stageRef}>SCENE 01 · TAKE 03</span>
+              <span data-hud="stage">SCENE 01 · TAKE 03</span>
             </p>
             {cinematic && (
               <motion.div style={{ opacity: scrubberOpacity }} className="hidden max-w-[24rem] flex-1 lg:flex">
-                <Scrubber scrub={scrub} tcRef={tcRef} frameRef={frameRef} className="flex w-full" />
+                <Scrubber scrub={scrub} className="flex w-full" />
               </motion.div>
             )}
             <p className="hud text-soft">
-              FOCUS <span ref={focusRef} className="text-accent">3.20M</span> <span className="text-muted">·</span> 35MM
+              FOCUS <span data-hud="focus" className="text-accent">3.20M</span> <span className="text-muted">·</span> 35MM
             </p>
           </div>
-          {/* phones + tablets: a compact scrubber once the copy has left the frame */}
+          {/* phones + tablets: a compact scrubber (frame counter · line · focus distance) once the copy has left the frame */}
           {cinematic && (
             <motion.div style={{ opacity: scrubberOpacity }} className="absolute inset-x-4 bottom-4 sm:inset-x-5 sm:bottom-14 lg:hidden short:hidden">
-              <Scrubber scrub={scrub} className="flex" />
+              <Scrubber scrub={scrub} compact className="flex" />
             </motion.div>
           )}
         </motion.div>
@@ -241,38 +258,47 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
   );
 }
 
-/** Scroll-driven take counter: four stage segments filling with the runway, plus timecode / frame readouts. */
-function Scrubber({
-  scrub,
-  tcRef,
-  frameRef,
-  className = '',
-}: {
-  scrub: MotionValue<number>;
-  tcRef?: RefObject<HTMLSpanElement | null>;
-  frameRef?: RefObject<HTMLSpanElement | null>;
-  className?: string;
-}) {
+type HudKey = 'focus' | 'tc' | 'frame' | 'stage';
+
+function setText(els: HTMLElement[], text: string): void {
+  for (const el of els) if (el.textContent !== text) el.textContent = text;
+}
+
+/**
+ * Scroll-driven take counter: four stage segments filling with the runway, plus timecode / frame readouts
+ * (desktop) or frame counter / focus distance (phones: the bottom HUD row is hidden there).
+ */
+function Scrubber({ scrub, compact = false, className = '' }: { scrub: MotionValue<number>; compact?: boolean; className?: string }) {
   const start = HERO_STAGES[0]?.from ?? 0;
   return (
     <div dir="ltr" className={`items-center gap-3 ${className}`}>
-      {tcRef && (
-        <span className="hud text-soft">
-          TC <span ref={tcRef} className="text-text">00:00:00:00</span>
-        </span>
-      )}
-      <div className="relative h-px min-w-24 flex-1 bg-white/20">
+      <span className="hud text-soft">
+        {compact ? (
+          <>
+            FR <span data-hud="frame" className="text-text">0000</span>
+          </>
+        ) : (
+          <>
+            TC <span data-hud="tc" className="text-text">00:00:00:00</span>
+          </>
+        )}
+      </span>
+      <div className="relative h-px min-w-16 flex-1 bg-white/20">
         <motion.span style={{ scaleX: scrub }} className="absolute inset-0 origin-left bg-accent" />
         {HERO_STAGES.slice(1).map((s) => (
           <span key={s.code} className="absolute -top-[3px] h-[7px] w-px bg-white/45" style={{ left: `${((s.from - start) / (1 - start)) * 100}%` }} />
         ))}
       </div>
-      {frameRef && (
-        <span className="hud text-soft">
-          FR <span ref={frameRef} className="text-text">0000</span>
-          <span className="text-muted"> / {String(HERO_FRAMES).padStart(4, '0')}</span>
-        </span>
-      )}
+      <span className="hud text-soft">
+        {compact ? (
+          <span data-hud="focus" className="text-accent">3.20M</span>
+        ) : (
+          <>
+            FR <span data-hud="frame" className="text-text">0000</span>
+            <span className="text-muted"> / {String(HERO_FRAMES).padStart(4, '0')}</span>
+          </>
+        )}
+      </span>
     </div>
   );
 }
@@ -292,13 +318,16 @@ function StageCaption({
   const opacity = useTransform(progress, [...range], [0, 1, 1, 0]);
   const y = useTransform(progress, [range[0], range[1], range[2], range[3]], [14, 0, 0, -10]);
   const stage = HERO_STAGES[index];
+  // side-by-side layouts: the first caption sits left (the lens' front ring owns the right of that frame), the
+  // others right, where the camera leaves room for them
+  const side = index === 0 ? 'wide:justify-end' : 'wide:justify-start';
   return (
     <motion.div
       style={{ opacity, y }}
-      className="pointer-events-none absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.25rem)] flex justify-center px-4 sm:bottom-24"
+      className={`pointer-events-none absolute inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.25rem)] flex justify-center px-4 sm:bottom-24 wide:px-[max(var(--gutter),3.5rem)] ${side}`}
       aria-hidden="true"
     >
-      <div className="max-w-[min(34rem,100%)] rounded-2xl bg-bg/80 px-5 py-3.5 text-center shadow-[0_20px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10 sm:px-7 sm:py-4">
+      <div className="max-w-[min(34rem,100%)] rounded-2xl bg-bg/85 px-5 py-3.5 text-center shadow-[0_20px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10 sm:px-7 sm:py-4 wide:text-start">
         <p className="hud text-accent">
           {pad2(index + 1)} · {stage?.code}
         </p>

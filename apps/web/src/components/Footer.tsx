@@ -86,7 +86,7 @@ export function Footer({ site }: { site: PublicSite | undefined }) {
       <div className="relative select-none overflow-hidden" aria-hidden="true">
         <p
           dir="ltr"
-          className="whitespace-nowrap bg-gradient-to-b from-white/[0.42] via-white/[0.14] to-transparent bg-clip-text pb-4 text-center font-display text-[clamp(6rem,26vw,24rem)] leading-[0.8] tracking-[-0.04em] text-transparent"
+          className="whitespace-nowrap bg-gradient-to-b from-white/[0.6] via-white/[0.24] to-transparent bg-clip-text pb-4 text-center font-display text-[clamp(6rem,26vw,24rem)] leading-[0.8] tracking-[-0.04em] text-transparent"
         >
           {mark}
         </p>

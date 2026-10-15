@@ -147,22 +147,27 @@ function placeSlots(count: number, aspect: number, compact: boolean): Slot[] {
   });
 }
 
-/** Where the phones fly to: a rising spiral around the lens, then a halo of screens around its front. */
+/**
+ * Where the phones fly to: a tilted orbit around the lens (a crown — high in front, low behind, so no screen
+ * ever passes over the lens), then a halo of screens around its front.
+ */
 interface FormationSpec {
-  spiralRadius: number;
-  /** Depth squash of the spiral (an ellipse: the front screens stay clear of the camera). */
-  spiralDepth: number;
-  spiralZ: number;
-  spiralLow: number;
-  spiralHigh: number;
+  orbitRadius: number;
+  /** Depth squash of the orbit (an ellipse: the front screens stay clear of the camera). */
+  orbitDepth: number;
+  orbitZ: number;
+  /** Orbit centre height, how far the front rises / the back sinks, and a slight rise per screen (reads as a helix). */
+  orbitY: number;
+  orbitTilt: number;
+  orbitRise: number;
   haloRadius: number;
   haloZ: number;
 }
-const WIDE_FORMATION: FormationSpec = { spiralRadius: 3.7, spiralDepth: 0.78, spiralZ: -0.6, spiralLow: 1.6, spiralHigh: 4.4, haloRadius: 2.55, haloZ: 2.2 };
-const COMPACT_FORMATION: FormationSpec = { spiralRadius: 2.15, spiralDepth: 0.9, spiralZ: -0.5, spiralLow: 1.6, spiralHigh: 4.95, haloRadius: 2.45, haloZ: 2.2 };
+const WIDE_FORMATION: FormationSpec = { orbitRadius: 3.7, orbitDepth: 0.78, orbitZ: -0.6, orbitY: 2.75, orbitTilt: 1.2, orbitRise: 0.5, haloRadius: 2.55, haloZ: 2.2 };
+const COMPACT_FORMATION: FormationSpec = { orbitRadius: 2.0, orbitDepth: 0.9, orbitZ: -0.5, orbitY: 3.35, orbitTilt: 1.25, orbitRise: 1.1, haloRadius: 2.45, haloZ: 2.2 };
 const TAU = Math.PI * 2;
-/** Spiral heading of the first (lowest, most important) phone, so it sits front-left when the camera arrives. */
-const SPIRAL_START = -1.35;
+/** Orbit heading of the first (most important) phone, so it sits front-left when the camera arrives. */
+const ORBIT_START = -1.05;
 /** Halo angle of the first phone (12 o'clock). */
 const HALO_START = Math.PI / 2;
 
@@ -201,6 +206,8 @@ function PhonesFormation({
   const count = compact ? COMPACT_SLOTS.length : Math.min(WIDE_SLOTS.length, Math.max(5, videos.length));
   const slots = useMemo(() => placeSlots(count, aspect, compact), [count, aspect, compact]);
   const powers = useMemo(() => slots.map(() => ({ current: 0 })), [slots]);
+  /** The screens' area lights go out before the iris stops down: their colour would streak across the front glass. */
+  const spill = useMemo(() => ({ current: 1 }), []);
   const rigs = useMemo<PhoneRig[]>(
     () =>
       slots.map((slot) => ({
@@ -232,8 +239,8 @@ function PhonesFormation({
     const time = state.clock.elapsedTime;
     const still = heroState.reducedMotion || QA_STILL;
     const n = slots.length;
-    const s0 = HERO_FORMATION.spiral[0];
-    const s1 = HERO_FORMATION.spiral[1];
+    const s0 = HERO_FORMATION.orbit[0];
+    const s1 = HERO_FORMATION.orbit[1];
     const h0 = HERO_FORMATION.halo[0];
     const h1 = HERO_FORMATION.halo[1];
     const spin = (t - s0) * 2.4;
@@ -241,6 +248,7 @@ function PhonesFormation({
     // the halo opens and rushes past the camera as it pushes into the lens
     const rush = smoothstep(HERO_FORMATION.rush[0], HERO_FORMATION.rush[1], t);
     const fade = 1 - smoothstep(0.8, 0.885, t) * 0.92;
+    spill.current = 1 - smoothstep(0.62, 0.7, t);
     const cam = camera.position;
     // Facing the camera, the screens' glass would mirror the front ring light right over the picture: in
     // formation the (additive) reflection layer keeps only a faint sheen so the reels stay readable.
@@ -250,19 +258,20 @@ function PhonesFormation({
       const r = rigs[i];
       const g = holders.current[i];
       if (!slot || !r || !g) continue;
-      const k1 = smoothstep(s0 + i * HERO_FORMATION.spiralStagger, s1 + i * HERO_FORMATION.spiralStagger, t);
+      const k1 = smoothstep(s0 + i * HERO_FORMATION.orbitStagger, s1 + i * HERO_FORMATION.orbitStagger, t);
       const k2 = smoothstep(h0 + i * HERO_FORMATION.haloStagger, h1 + i * HERO_FORMATION.haloStagger, t);
       r.pos.copy(r.restPos);
       r.q.copy(r.restQ);
       let yaw = slot.rotation[1];
       if (k1 > 0) {
-        const f = n > 1 ? i / (n - 1) : 0.5;
-        const a = SPIRAL_START + i * (TAU / n) + spin;
-        const x = Math.sin(a) * form.spiralRadius;
-        const z = form.spiralZ + Math.cos(a) * form.spiralRadius * form.spiralDepth;
-        const y = form.spiralLow + (form.spiralHigh - form.spiralLow) * f;
+        const f = n > 1 ? i / (n - 1) - 0.5 : 0;
+        const a = ORBIT_START + i * (TAU / n) + spin;
+        const ca = Math.cos(a);
+        const x = Math.sin(a) * form.orbitRadius;
+        const z = form.orbitZ + ca * form.orbitRadius * form.orbitDepth;
+        const y = form.orbitY + form.orbitTilt * ca + form.orbitRise * f;
         r.target.set(x, y, z);
-        // each screen turns to the camera (a touch of tilt so the stack reads as a spiral, not a wall)
+        // each screen turns to the camera (a touch of tilt so the orbit reads in depth, not as a wall)
         const dx = cam.x - x;
         const dz = cam.z - z;
         const facing = Math.atan2(dx, dz);
@@ -334,6 +343,7 @@ function PhonesFormation({
                   powerRef={powers[i]}
                   areaLight={profile.areaLights && slot.rank < 4}
                   lightIntensity={compact ? 2.4 : 3.4}
+                  lightGain={spill}
                 />
               </group>
             </group>
@@ -421,7 +431,7 @@ function Exposure({ fx, fogFar }: { fx: StudioFx; fogFar: number }) {
     const push = smoothstep(0.64, 0.84, t);
     fx.aberration = 1 + 7 * push;
     fx.vignette = 0.74 + 0.2 * push;
-    // the wide reveal of the spiral pulls the haze back so the far screens stay readable
+    // the wide reveal of the orbit pulls the haze back so the far screens stay readable
     const fog = scene.fog;
     if (fog instanceof Fog) {
       const open = smoothstep(0.32, 0.5, t) * (1 - smoothstep(0.58, 0.66, t));
@@ -465,7 +475,7 @@ export default function HeroScene({ videos, accent, mark, tier, lockTier, active
   return (
     <Canvas
       dpr={[profile.dpr[0], profile.dpr[0] + (profile.dpr[1] - profile.dpr[0]) * perf]}
-      frameloop={QA_STILL || reducedMotion ? 'demand' : active ? 'always' : 'never'}
+      frameloop={QA_STILL ? (active ? 'demand' : 'never') : reducedMotion ? 'demand' : active ? 'always' : 'never'}
       gl={{ antialias: false, alpha: false, powerPreference: 'high-performance', stencil: false }}
       camera={{ fov: compact ? COMPACT_FOV : WIDE_FOV, near: 0.05, far: 70, position: [0, 3.2, 22] }}
       onCreated={({ gl }) => {

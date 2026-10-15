@@ -190,7 +190,7 @@ function Reel2D({ videos, placeName, onOpen }: Omit<Props, 'accent'>) {
       <p className="mt-3 flex items-center justify-center gap-2 text-muted">
         <span className="hud">SWIPE</span>
         <span aria-hidden="true">·</span>
-        <span className="font-display text-[0.9375rem] leading-none text-soft">اسحب للتنقل</span>
+        <span className="font-display text-base leading-none text-soft">اسحب للتنقل</span>
       </p>
     </div>
   );

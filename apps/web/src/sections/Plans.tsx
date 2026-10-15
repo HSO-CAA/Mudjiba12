@@ -55,7 +55,7 @@ export function Plans({ plans, index, total }: { plans: PublicPlan[]; index: num
                       {plan.tagline && <p className="mt-2 text-[0.9375rem] leading-7 text-soft">{plan.tagline}</p>}
                     </div>
                     {hl && (
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 font-display text-sm leading-none text-[var(--accent-ink)]">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 font-display text-base leading-none text-[var(--accent-ink)]">
                         <SparkIcon size={12} /> الأكثر طلباً
                       </span>
                     )}
@@ -63,7 +63,7 @@ export function Plans({ plans, index, total }: { plans: PublicPlan[]; index: num
 
                   <div className="relative mt-8 border-y border-line py-7">
                     {price.onRequest ? (
-                      <p className="font-display text-[2.4rem] leading-tight">{price.amount}</p>
+                      <p className="font-display text-[1.9rem] leading-tight">{price.amount}</p>
                     ) : (
                       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                         <span className="font-display text-5xl leading-none sm:text-6xl">{price.amount}</span>

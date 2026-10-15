@@ -103,7 +103,7 @@ export function PlaceCard({ place, index, className = '' }: Props) {
                   {place.name.slice(0, 1)}
                 </span>
               )}
-              <span className="rounded-full bg-bg/75 px-3.5 py-2 font-display text-[0.9375rem] leading-none text-text ring-1 ring-white/10 backdrop-blur">
+              <span className="rounded-full bg-bg/75 px-3.5 py-2 font-display text-base leading-none text-text ring-1 ring-white/10 backdrop-blur">
                 {videosLabel(place.videoCount)}
               </span>
             </div>

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { AnimatePresence, motion, useMotionValueEvent } from 'motion/react';
+import { motion, useMotionValueEvent } from 'motion/react';
 import type { PublicVideo } from '@s5y/shared';
 import { useRenderLease } from '../3d/renderLease';
 import { SHOWREEL_PER_REEL, detent, progressForReel, reelAt, showreelState } from '../3d/showreelState';
@@ -162,12 +162,11 @@ export function ShowreelStage({ videos, placeMap, accent, tier, lockTier, onUnav
               REEL {pad2(current + 1)} / {pad2(n)} · {formatDuration(video.durationSec)}
             </p>
             <div aria-live="polite" className="mt-3 min-h-[4.6rem] sm:min-h-[5.6rem]">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div key={video.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3, ease: EASE }}>
-                  <h3 className="line-clamp-2 font-display text-[clamp(1.5rem,3vw,2.4rem)] leading-[1.28] text-text">{title}</h3>
-                  {place && video.title && <p className="mt-1.5 text-base text-soft">{place.name}</p>}
-                </motion.div>
-              </AnimatePresence>
+              {/* keyed enter-only fade: scrubbing fast never leaves the panel empty mid-exit */}
+              <motion.div key={video.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }}>
+                <h3 className="line-clamp-2 font-display text-[clamp(1.5rem,3vw,2.4rem)] leading-[1.28] text-text">{title}</h3>
+                {place && video.title && <p className="mt-1.5 text-base text-soft">{place.name}</p>}
+              </motion.div>
             </div>
             <div className="mt-5 flex items-center gap-2.5">
               <Button onClick={() => openAt(current)} icon={<PlayIcon size={16} />} className="flex-1 whitespace-nowrap sm:flex-none">

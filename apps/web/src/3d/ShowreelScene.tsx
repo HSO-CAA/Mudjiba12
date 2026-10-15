@@ -1,20 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
-import {
-  AdditiveBlending,
-  CanvasTexture,
-  Color,
-  CylinderGeometry,
-  Group,
-  Mesh,
-  MeshBasicMaterial,
-  MeshPhysicalMaterial,
-  PerspectiveCamera,
-  PlaneGeometry,
-  SRGBColorSpace,
-  Vector3,
-} from 'three';
+import { AdditiveBlending, CanvasTexture, Color, Group, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, SRGBColorSpace, Vector3 } from 'three';
 import type { PublicVideo } from '@s5y/shared';
 import type { QualityTier } from '../lib/device';
 import { DebugHandle } from './DebugHandle';
@@ -58,8 +45,10 @@ interface HelixLayout {
   fov: number;
 }
 
-const WIDE: HelixLayout = { radius: 3.05, pitch: 1.18, pull: 1.15, distance: 13.4, lift: 1.05, orbit: 0.12, fov: 30 };
-const COMPACT: HelixLayout = { radius: 2.2, pitch: 1.25, pull: 1.0, distance: 12.2, lift: 0.85, orbit: 0.08, fov: 40 };
+const WIDE: HelixLayout = { radius: 3.05, pitch: 1.3, pull: 1.45, distance: 12.6, lift: 1.05, orbit: 0.12, fov: 30 };
+const COMPACT: HelixLayout = { radius: 2.2, pitch: 1.35, pull: 1.25, distance: 11.8, lift: 0.85, orbit: 0.08, fov: 40 };
+/** Reels further than this (in reel steps) from the parked one are not drawn; the back of the helix shows phone backs. */
+const VISIBLE = 3.4;
 /** Heading of the parked (front) reel around the helix axis. */
 const FRONT_AZ = 0.2;
 /** Desktop: the title panel owns the right side (RTL start), so the helix is framed left of centre. */
@@ -77,8 +66,11 @@ function createGlowTexture(accent: string): CanvasTexture {
     const col = new Color(accent);
     const rgb = `${Math.round(col.r * 255)}, ${Math.round(col.g * 255)}, ${Math.round(col.b * 255)}`;
     const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    g.addColorStop(0, `rgba(${rgb}, 0.16)`);
-    g.addColorStop(0.45, `rgba(${rgb}, 0.05)`);
+    // near-gaussian falloff: a pool of light with no visible edge
+    g.addColorStop(0, `rgba(${rgb}, 0.09)`);
+    g.addColorStop(0.25, `rgba(${rgb}, 0.058)`);
+    g.addColorStop(0.5, `rgba(${rgb}, 0.024)`);
+    g.addColorStop(0.75, `rgba(${rgb}, 0.006)`);
     g.addColorStop(1, `rgba(${rgb}, 0)`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
@@ -113,31 +105,16 @@ function Helix({
     k.glass.opacity = 0.28;
     return k;
   }, []);
-  // the rig: a chrome spine with one anodised arm per reel
-  const rig = useMemo(
-    () => ({
-      spine: new CylinderGeometry(0.036, 0.036, 1, 20, 1, true),
-      arm: new CylinderGeometry(0.018, 0.018, 1, 10, 1, true),
-      chrome: new MeshPhysicalMaterial({ color: '#6a6a70', metalness: 1, roughness: 0.34 }),
-      anodised: new MeshPhysicalMaterial({ color: '#1a1a1e', metalness: 0.4, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.3 }),
-    }),
-    [],
-  );
   useEffect(
     () => () => {
       kit.dispose();
-      rig.spine.dispose();
-      rig.arm.dispose();
-      rig.chrome.dispose();
-      rig.anodised.dispose();
       document.body.style.cursor = '';
     },
-    [kit, rig],
+    [kit],
   );
 
   const group = useRef<Group>(null);
   const holders = useRef<(Group | null)[]>([]);
-  const arms = useRef<(Mesh | null)[]>([]);
   const powers = useMemo(() => videos.map(() => ({ current: 0.3 })), [videos]);
   const s = useRef(showreelState.target);
   const [front, setFront] = useState(() => Math.min(n - 1, Math.max(0, Math.round(showreelState.target))));
@@ -155,28 +132,21 @@ function Helix({
     g.position.y = pos * L.pitch;
     for (let i = 0; i < n; i++) {
       const h = holders.current[i];
-      const arm = arms.current[i];
       if (!h) continue;
       const d = Math.abs(i - pos);
-      const visible = d < 2.8;
+      const visible = d < VISIBLE;
       h.visible = visible;
-      if (arm) arm.visible = visible;
       if (!visible) continue;
+      // the parked reel slides out of the helix towards the camera and squares up to it
       const f = 1 - smoothstep(0, 1, Math.min(1, d));
       const theta = -i * STEP;
       const r = L.radius + L.pull * f;
       const y = -i * L.pitch;
       h.position.set(Math.sin(theta) * r, y, Math.cos(theta) * r);
       h.rotation.set(0, theta, 0);
-      h.scale.setScalar(1 + 0.06 * f);
-      if (arm) {
-        const len = r - 0.08;
-        arm.position.set(Math.sin(theta) * len * 0.5, y, Math.cos(theta) * len * 0.5);
-        arm.rotation.set(Math.PI / 2, theta, 0, 'YXZ');
-        arm.scale.set(1, len, 1);
-      }
+      h.scale.setScalar(1 + 0.1 * f);
       const p = powers[i];
-      if (p) p.current = 0.2 + 0.8 * (1 - smoothstep(0, 2.4, d));
+      if (p) p.current = 0.32 + 0.68 * (1 - smoothstep(0, 2.2, d));
     }
     const idx = Math.min(n - 1, Math.max(0, Math.round(pos)));
     if (idx !== frontRef.current) {
@@ -187,23 +157,14 @@ function Helix({
 
   // ≤ 3 decoders: the parked reel and its neighbours (posters elsewhere); only the front one plays on phones
   const budget = Math.min(3, profile.maxVideoTextures);
-  const spine = (n - 1) * L.pitch + 9;
 
   return (
     <group ref={group}>
-      <mesh geometry={rig.spine} material={rig.chrome} position={[0, -((n - 1) * L.pitch) / 2, 0]} scale={[1, spine, 1]} />
       {videos.map((video, i) => {
         const dist = Math.abs(i - front);
         const decode = dist <= (budget >= 3 ? 1 : 0);
         return (
           <group key={video.id}>
-            <mesh
-              ref={(m) => {
-                arms.current[i] = m;
-              }}
-              geometry={rig.arm}
-              material={rig.anodised}
-            />
             <group
               ref={(g) => {
                 holders.current[i] = g;
@@ -267,7 +228,7 @@ function Backdrop({ accent, compact }: { accent: string; compact: boolean }) {
       material={res.mat}
       position={[-Math.sin(FRONT_AZ) * back, 0.3, -Math.cos(FRONT_AZ) * back]}
       rotation={[0, FRONT_AZ, 0]}
-      scale={compact ? 7 : 9}
+      scale={compact ? 10 : 13}
     />
   );
 }
@@ -331,7 +292,7 @@ export default function ShowreelScene({ videos, accent, tier, lockTier, active, 
   return (
     <Canvas
       dpr={[profile.dpr[0], profile.dpr[0] + (profile.dpr[1] - profile.dpr[0]) * perf]}
-      frameloop={QA_STILL ? 'demand' : active ? 'always' : 'never'}
+      frameloop={QA_STILL ? (active ? 'demand' : 'never') : active ? 'always' : 'never'}
       gl={{ antialias: false, alpha: false, powerPreference: 'high-performance', stencil: false }}
       camera={{ fov: L.fov, near: 0.1, far: 60, position: [0, L.lift, L.distance] }}
       onCreated={({ gl }) => gl.setClearColor('#060607', 1)}

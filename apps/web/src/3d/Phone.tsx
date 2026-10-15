@@ -78,6 +78,8 @@ export interface PhoneProps {
   powerRef?: { current: number };
   areaLight?: boolean;
   lightIntensity?: number;
+  /** Extra gain on the area light only (the screen keeps its brightness), animated by the parent. */
+  lightGain?: { current: number };
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
   onPointerOver?: (e: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: (e: ThreeEvent<PointerEvent>) => void;
@@ -98,6 +100,7 @@ export function Phone({
   powerRef,
   areaLight = false,
   lightIntensity = 3.2,
+  lightGain,
   onClick,
   onPointerOver,
   onPointerOut,
@@ -151,7 +154,7 @@ export function Phone({
     s.color.lerp(s.target, 0.08);
     if (lightRef.current) {
       lightRef.current.color.copy(s.color);
-      lightRef.current.intensity = lightIntensity * power;
+      lightRef.current.intensity = lightIntensity * power * (lightGain ? lightGain.current : 1);
     }
   });
 

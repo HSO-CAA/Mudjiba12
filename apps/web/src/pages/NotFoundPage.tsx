@@ -24,7 +24,7 @@ export function NotFoundPage({ title = 'المشهد مو موجود', body = '�
           initial={{ opacity: 0, filter: 'blur(18px)', scale: 1.08 }}
           animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
           transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-gradient-to-b from-white/[0.55] via-white/[0.2] to-transparent bg-clip-text pb-2 font-display text-[clamp(7rem,30vw,22rem)] leading-[0.8] text-transparent"
+          className="bg-gradient-to-b from-white/[0.9] via-white/[0.5] to-white/[0.12] bg-clip-text pb-2 font-display text-[clamp(7rem,30vw,22rem)] leading-[0.8] text-transparent"
           aria-hidden="true"
         >
           404

@@ -548,7 +548,7 @@ export default function VideoPlayer({ session, onClose }: Props) {
       </div>
 
       {videos.length > 1 && (
-        <p className="relative z-10 pb-4 text-center font-display text-[0.9375rem] text-soft sm:hidden">اسحب لفوق للفيديو التالي</p>
+        <p className="relative z-10 pb-4 text-center font-display text-base text-soft sm:hidden">اسحب لفوق للفيديو التالي</p>
       )}
     </motion.div>,
     document.body,
