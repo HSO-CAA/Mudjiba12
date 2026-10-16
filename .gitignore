@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+!.env.local.example
+# runtime media storage (never the source folder apps/api/src/storage)
+/storage/
+/apps/api/storage/
+*.log
+.DS_Store
+coverage/
+.vite/
+*.tsbuildinfo
+# static preview build (apps/web/scripts/build-preview.mjs)
+/preview/
