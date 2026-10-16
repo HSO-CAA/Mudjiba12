@@ -12,7 +12,6 @@ import { createSoftShadowTexture } from './textures';
 import { clamp01, damp, easeOutExpo, heroState, smoothstep } from './heroState';
 import { CAMERA_CHANNELS, HERO_FORMATION, cameraTrack } from './heroTimeline';
 import { QA_STILL } from './qa';
-import { QaStillInvalidator } from './QaStill';
 import { sampleTrack, trackSample } from './track';
 import { DebugHandle } from './DebugHandle';
 import { lowerTier, qualityProfile, type QualityProfile } from './quality';
@@ -500,7 +499,6 @@ export default function HeroScene({ videos, accent, mark, tier, lockTier, active
         />
       )}
       <TimelineDriver reducedMotion={reducedMotion} />
-      {QA_STILL && <QaStillInvalidator />}
       <Suspense fallback={null}>
         <StudioEnvironment accent={accent} resolution={profile.envResolution} focus={LENS_FOCUS} />
         <Exposure fx={fx} fogFar={fogFar} />

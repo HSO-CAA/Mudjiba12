@@ -8,7 +8,6 @@ import { DebugHandle } from './DebugHandle';
 import { damp, smoothstep } from './heroState';
 import { Phone, createPhoneKit } from './Phone';
 import { QA_STILL } from './qa';
-import { QaStillInvalidator } from './QaStill';
 import { lowerTier, qualityProfile, type QualityProfile } from './quality';
 import { showreelState } from './showreelState';
 import { SharedTextureRelease, StudioEffects, StudioEnvironment, ensureRectAreaLights } from './Studio';
@@ -313,7 +312,6 @@ export default function ShowreelScene({ videos, accent, tier, lockTier, active, 
           onFallback={() => setCurrentTier('low')}
         />
       )}
-      {QA_STILL && <QaStillInvalidator />}
       <Rig compact={compact} />
       <Suspense fallback={null}>
         <StudioEnvironment accent={accent} resolution={profile.envResolution} focus={frontPoint} />
