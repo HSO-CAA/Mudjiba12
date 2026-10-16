@@ -25,11 +25,11 @@ export function Work({ places, index, total, totalVideos }: { places: PlaceSumma
             places.length > 0 ? (
               <dl className="flex gap-8">
                 <div className="flex flex-col-reverse justify-end gap-2">
-                  <dt className="font-display text-base leading-tight text-soft">مكان وبراند</dt>
+                  <dt className="font-ui text-[0.9375rem] leading-tight text-soft">مكان وبراند</dt>
                   <dd className="font-display text-[2.6rem] leading-none text-text">{formatNumber(places.length)}</dd>
                 </div>
                 <div className="flex flex-col-reverse justify-end gap-2">
-                  <dt className="font-display text-base leading-tight text-soft">فيديو منشور</dt>
+                  <dt className="font-ui text-[0.9375rem] leading-tight text-soft">فيديو منشور</dt>
                   <dd className="font-display text-[2.6rem] leading-none text-accent">{formatNumber(totalVideos)}</dd>
                 </div>
               </dl>

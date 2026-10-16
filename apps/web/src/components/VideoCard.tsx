@@ -59,8 +59,8 @@ export function VideoCard({ video, caption, onOpen, autoplayInView = false, clas
       </span>
 
       <div className="text-on-media absolute inset-x-4 bottom-4">
-        <p className="line-clamp-2 font-display text-[1.1875rem] leading-[1.5]">{label}</p>
-        <p className="mt-1.5 flex items-center gap-2 text-sm text-soft">
+        <p className="line-clamp-2 font-ui text-[1.1875rem] leading-[1.5]">{label}</p>
+        <p className="mt-1.5 flex items-center gap-2 font-ui text-sm font-semibold text-soft">
           {caption && video.title && <span className="truncate">{caption}</span>}
           {video.plays > 0 && (
             <>

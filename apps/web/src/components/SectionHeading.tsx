@@ -28,7 +28,7 @@ export function SectionHeading({ index, total, code, kicker, title, description,
             <span className="h-px w-8 bg-line-strong" aria-hidden="true" />
             <span className="hud">{code}</span>
             <span className="h-px w-3 bg-line-strong" aria-hidden="true" />
-            <span className="font-display text-[1.0625rem] leading-none text-soft">{kicker}</span>
+            <span className="font-ui text-base leading-none text-soft">{kicker}</span>
           </p>
         </Reveal>
         <RevealLines as="h2" id={id ? `${id}-title` : undefined} lines={lines} className="display-xl text-[clamp(2.1rem,6vw,4.6rem)] text-balance" />

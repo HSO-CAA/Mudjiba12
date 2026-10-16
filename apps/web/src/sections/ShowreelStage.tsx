@@ -164,7 +164,7 @@ export function ShowreelStage({ videos, placeMap, accent, tier, lockTier, onUnav
             <div aria-live="polite" className="mt-3 min-h-[4.6rem] sm:min-h-[5.6rem]">
               {/* keyed enter-only fade: scrubbing fast never leaves the panel empty mid-exit */}
               <motion.div key={video.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }}>
-                <h3 className="line-clamp-2 font-display text-[clamp(1.5rem,3vw,2.4rem)] leading-[1.28] text-text">{title}</h3>
+                <h3 className="line-clamp-2 font-display text-[clamp(1.75rem,3vw,2.4rem)] leading-[1.3] text-text">{title}</h3>
                 {place && video.title && <p className="mt-1.5 text-base text-soft">{place.name}</p>}
               </motion.div>
             </div>

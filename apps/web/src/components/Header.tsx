@@ -79,7 +79,7 @@ export function Header({ site, hasPlans }: { site: PublicSite | undefined; hasPl
           <Link to="/" className="group flex items-center gap-3" aria-label={`${name} — الرئيسية`} onClick={() => setOpen(false)}>
             <LensGlyph className="transition-transform duration-700 group-hover:rotate-[160deg]" />
             <span className="flex flex-col leading-none">
-              <span className="font-display text-lg font-extrabold">{name}</span>
+              <span className="font-ui text-lg font-extrabold">{name}</span>
               {handle && <span className="hud mt-1.5 text-soft">@{handle}</span>}
             </span>
           </Link>
@@ -90,7 +90,7 @@ export function Header({ site, hasPlans }: { site: PublicSite | undefined; hasPl
                 key={item.id}
                 type="button"
                 onClick={() => select(item.id)}
-                className="rounded-full px-4 py-2 font-display text-[1.125rem] leading-none text-soft transition hover:bg-white/[0.07] hover:text-text"
+                className="rounded-full px-4 py-2 font-ui text-[1.0625rem] leading-none text-soft transition hover:bg-white/[0.07] hover:text-text"
               >
                 {item.label}
               </button>
@@ -101,7 +101,7 @@ export function Header({ site, hasPlans }: { site: PublicSite | undefined; hasPl
             <button
               type="button"
               onClick={() => select('contact')}
-              className="hidden h-10 items-center gap-2 rounded-full bg-accent px-5 font-display text-[1.0625rem] leading-none text-[var(--accent-ink)] transition hover:brightness-110 sm:inline-flex"
+              className="hidden h-10 items-center gap-2 rounded-full bg-accent px-5 font-ui text-base font-bold leading-none text-[var(--accent-ink)] transition hover:brightness-110 sm:inline-flex"
             >
               <span className="rec-dot inline-block size-1.5 rounded-full bg-[var(--accent-ink)]" aria-hidden="true" />
               احجز تصوير

@@ -32,7 +32,7 @@ export function Marquee({ places }: { places: PlaceSummary[] }) {
       <div className="container-cine mb-5 flex items-center gap-3">
         <span className="hud text-accent">CLIENTS</span>
         <span className="h-px w-6 bg-line-strong" aria-hidden="true" />
-        <span className="font-display text-[1.0625rem] leading-none text-soft">اشتغلت ويا</span>
+        <span className="font-ui text-base leading-none text-soft">اشتغلت ويا</span>
       </div>
       <div className="marquee relative overflow-hidden [mask-image:linear-gradient(to_left,transparent,black_8%,black_92%,transparent)]">
         {reduced ? (

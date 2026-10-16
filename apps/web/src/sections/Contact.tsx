@@ -101,7 +101,7 @@ function ContactLine({ href, icon, label, value, external }: { href: string; ico
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       className="group flex items-center justify-between gap-4 border-b border-line py-4 transition hover:border-accent/60"
     >
-      <span className="flex items-center gap-3 font-display text-[1.0625rem] text-soft transition group-hover:text-text">
+      <span className="flex items-center gap-3 font-ui text-base text-soft transition group-hover:text-text">
         <span className="text-accent">{icon}</span>
         {label}
       </span>
@@ -167,7 +167,7 @@ function InquiryForm({ plans, source }: { plans: PublicPlan[]; source: string })
   };
 
   const fieldClass = (k: Field) =>
-    `peer w-full rounded-2xl border bg-white/[0.03] px-4 pb-3 pt-8 text-[1.0625rem] text-text outline-none transition placeholder:text-transparent focus:bg-white/[0.05] ${
+    `peer w-full rounded-2xl border bg-white/[0.03] px-4 pb-3 pt-8 font-ui text-base font-semibold text-text outline-none transition placeholder:text-transparent focus:bg-white/[0.05] ${
       errors[k] ? 'border-rec/70 focus:border-rec' : 'border-line-strong focus:border-accent'
     }`;
 
@@ -206,9 +206,11 @@ function InquiryForm({ plans, source }: { plans: PublicPlan[]; source: string })
             className="relative flex flex-col gap-4"
             aria-describedby={formError ? `${uid}-form-error` : undefined}
           >
-            <div className="mb-2 flex items-center justify-between">
-              <p className="font-display text-[1.5rem] leading-tight">ابدأ مشروعك</p>
-              <span className="hud text-muted">BRIEF · 01</span>
+            {/* wrap-reverse: when the title's last tail would come within 16px of the HUD (≤ ~400px wide), the
+                HUD steps up to a kicker line above it instead of squeezing the title onto two lines */}
+            <div className="mb-2 flex flex-wrap-reverse items-center justify-between gap-x-4 gap-y-1">
+              <p className="font-display text-[1.875rem] leading-[1.3]">ابدأ مشروعك</p>
+              <span className="hud shrink-0 text-muted">BRIEF · 01</span>
             </div>
 
             <FloatingField id={`${uid}-name`} label="الاسم" error={errors.name}>
@@ -272,7 +274,7 @@ function FloatingField({ id, label, error, children }: { id: string; label: stri
     <div>
       <div className="relative">
         {children}
-        <label htmlFor={id} className="pointer-events-none absolute start-4 top-2.5 text-sm font-semibold leading-5 text-muted transition peer-focus:text-accent">
+        <label htmlFor={id} className="pointer-events-none absolute start-4 top-2.5 font-ui text-sm font-semibold leading-5 text-muted transition peer-focus:text-accent">
           {label}
         </label>
       </div>

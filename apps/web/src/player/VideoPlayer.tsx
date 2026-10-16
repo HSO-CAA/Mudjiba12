@@ -410,9 +410,9 @@ export default function VideoPlayer({ session, onClose }: Props) {
           <p className="hud text-soft">
             <span className="text-accent">REEL</span> {counter}
           </p>
-          <h2 className="mt-1.5 truncate pb-1 font-display text-[1.25rem] leading-[1.35] sm:text-[1.4rem]">{title}</h2>
+          <h2 className="mt-1.5 truncate pb-1 font-ui text-[1.125rem] font-bold leading-[1.4] sm:text-[1.25rem]">{title}</h2>
           {place && (
-            <Link to={`/work/${place.slug}`} onClick={handleClose} className="inline-block font-display text-base leading-snug text-soft transition hover:text-accent">
+            <Link to={`/work/${place.slug}`} onClick={handleClose} className="inline-block font-ui text-[0.9375rem] leading-snug text-soft transition hover:text-accent">
               {place.name}
             </Link>
           )}
@@ -548,7 +548,7 @@ export default function VideoPlayer({ session, onClose }: Props) {
       </div>
 
       {videos.length > 1 && (
-        <p className="relative z-10 pb-4 text-center font-display text-base text-soft sm:hidden">اسحب لفوق للفيديو التالي</p>
+        <p className="relative z-10 pb-4 text-center font-ui text-[0.9375rem] text-soft sm:hidden">اسحب لفوق للفيديو التالي</p>
       )}
     </motion.div>,
     document.body,

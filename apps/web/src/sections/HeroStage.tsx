@@ -13,7 +13,7 @@ interface Props {
   mark: string;
   /** Holds the render lease: on screen, tab visible, not covered by the cut to black. */
   active: boolean;
-  /** Keep the screens' video decoders (released on phones while the hero is off screen). */
+  /** Keep the screens' video decoders (released while the hero is off screen; paused whenever it is not `active`). */
   decode: boolean;
   /** WebGL is unavailable or the scene died (context loss / error): the hero switches to its static layout. */
   onUnavailable: () => void;
@@ -71,14 +71,15 @@ export function HeroFallback({ videos, accent }: { videos: PublicVideo[]; accent
     <div className="absolute inset-0 overflow-hidden bg-bg" aria-hidden="true">
       <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_35%_55%,color-mix(in_oklab,var(--accent)_22%,transparent),transparent_70%)]" />
       <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg to-transparent" />
-      <div className="absolute inset-0 flex items-center justify-center [perspective:1400px] wide:justify-start wide:ps-[8%]">
+      {/* side-by-side: the row gathers behind the lens on the far side, clear of the copy column (as in 3D) */}
+      <div className="absolute inset-y-0 left-0 flex w-full items-center justify-center [perspective:1400px] wide:w-[60%]">
         <div className="relative flex items-center gap-3 [transform-style:preserve-3d] sm:gap-5" style={{ transform: 'rotateX(6deg)' }}>
           {slots.map((v, i) => {
             const offset = i - 2;
             return (
               <div
                 key={i}
-                className="relative aspect-[9/19] w-[22vw] max-w-[150px] overflow-hidden rounded-[1.1rem] border-[3px] border-[#8e8b86]/70 bg-surface-2 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] sm:w-[13vw]"
+                className="relative aspect-[9/19] w-[22vw] max-w-[150px] overflow-hidden rounded-[1.1rem] border-[3px] border-[#8e8b86]/70 bg-surface-2 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] sm:w-[13vw] wide:w-[9.5vw] wide:max-w-[130px]"
                 style={{
                   transform: `translateZ(${-Math.abs(offset) * 70}px) rotateY(${offset * -14}deg)`,
                   boxShadow: `0 0 80px -30px ${accent}`,

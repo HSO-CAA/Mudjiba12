@@ -25,7 +25,7 @@ export interface HeroSceneProps {
   lockTier: boolean;
   /** Render + play only while the hero holds the render lease (on screen, tab visible, not covered). */
   active: boolean;
-  /** Keep video decoders for the screens (phones release them while the hero is off screen). */
+  /** Keep video decoders for the screens (released while the hero is off screen, on every device). */
   decode: boolean;
   compact: boolean;
   reducedMotion: boolean;
@@ -229,7 +229,7 @@ function PhonesFormation({
   const bobs = useRef<(Group | null)[]>([]);
   const shadows = useRef<(Mesh | null)[]>([]);
   const form = compact ? COMPACT_FORMATION : WIDE_FORMATION;
-  // phones: at most three decoders (the front row); the deep row shows posters. Off screen: none at all on phones.
+  // phones: at most three decoders (the front row); the deep row shows posters. Off screen: none at all.
   const decodeBudget = decode ? Math.min(compact ? Math.min(3, profile.maxVideoTextures) : profile.maxVideoTextures, videos.length) : 0;
 
   useFrame((state) => {

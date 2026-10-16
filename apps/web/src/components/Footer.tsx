@@ -92,11 +92,11 @@ export function Footer({ site }: { site: PublicSite | undefined }) {
         </p>
       </div>
 
-      <div className="container-cine relative flex flex-col-reverse items-center justify-between gap-4 border-t border-line py-6 text-[0.9375rem] text-muted sm:flex-row">
+      <div className="container-cine relative flex flex-col-reverse items-center justify-between gap-4 border-t border-line py-6 font-ui text-[0.9375rem] font-semibold text-muted sm:flex-row">
         <p>
           © <span dir="ltr">{year}</span> {name} — جميع الحقوق محفوظة
         </p>
-        <button type="button" onClick={() => go('top')} className="inline-flex items-center gap-2 font-display text-base text-soft transition hover:text-text">
+        <button type="button" onClick={() => go('top')} className="inline-flex items-center gap-2 font-ui text-base text-soft transition hover:text-text">
           للأعلى <ArrowUpIcon size={16} />
         </button>
       </div>

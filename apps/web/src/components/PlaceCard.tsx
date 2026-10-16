@@ -99,11 +99,11 @@ export function PlaceCard({ place, index, className = '' }: Props) {
               {place.logoUrl ? (
                 <img src={place.logoUrl} alt="" className="size-12 rounded-full bg-black/40 object-cover ring-1 ring-white/15 backdrop-blur" loading="lazy" />
               ) : (
-                <span className="grid size-12 place-items-center rounded-full bg-black/40 font-display text-lg font-bold ring-1 ring-white/15">
+                <span className="grid size-12 place-items-center rounded-full bg-black/40 font-ui text-lg font-bold ring-1 ring-white/15">
                   {place.name.slice(0, 1)}
                 </span>
               )}
-              <span className="rounded-full bg-bg/75 px-3.5 py-2 font-display text-base leading-none text-text ring-1 ring-white/10 backdrop-blur">
+              <span className="rounded-full bg-bg/75 px-3.5 py-2 font-ui text-base leading-none text-text ring-1 ring-white/10 backdrop-blur">
                 {videosLabel(place.videoCount)}
               </span>
             </div>
@@ -115,7 +115,7 @@ export function PlaceCard({ place, index, className = '' }: Props) {
 
           {/* bottom */}
           <div className="absolute inset-x-0 bottom-0 p-6 sm:p-7">
-            <div className="text-on-media mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[0.9375rem] text-text">
+            <div className="text-on-media mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-ui text-[0.9375rem] font-semibold text-text">
               {place.category && (
                 <span className="flex items-center gap-2">
                   <span className="size-1.5 rounded-full" style={{ background: place.accentColor }} aria-hidden="true" />

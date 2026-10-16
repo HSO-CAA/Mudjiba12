@@ -89,6 +89,9 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
   });
 
   const copyOpacity = useTransform(progress, [...cues.copy], [1, 0]);
+  // the scrims under the copy outlast it: the words are gone before the frame behind them brightens, so a fading
+  // line never sits on a half-lifted scrim over a bright screen
+  const scrimOpacity = useTransform(progress, [cues.copy[1] * 0.7, cues.copy[1] * 1.2], [1, 0]);
   const copyY = useTransform(progress, [...cues.copyMove], [0, reduced ? 0 : -90]);
   const copyBlur = useTransform(progress, [...cues.copy], ['blur(0px)', reduced ? 'blur(0px)' : 'blur(8px)']);
   const blackout = useTransform(progress, [...cues.blackout], [0, 1]);
@@ -117,19 +120,25 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
           accent={brand.accent}
           mark={brand.heroMark || brand.name}
           active={active}
-          decode={wide || inView}
+          // decoders follow the section, not the lease: off screen (the showreel or any other scene renders) they are
+          // released on every device; covered but still on screen (the cut to black, the tab hidden) they stay
+          // paused, so scrolling back up resumes on live video instead of popping from posters.
+          decode={inView}
           onUnavailable={onUnavailable}
         />
 
-        {/* legibility gradients (scrims under every HUD line and the copy) */}
+        {/* legibility gradients (scrims under every HUD line and the copy). Target: ≥ 4.5:1 for every word of the
+            copy even if the frame behind it were pure white (the screens / posters can be). Side-by-side: the copy
+            column (≤ ~50% from the start edge) sits on ≥ 0.77 black, feathered above/below the column so the top and
+            bottom of the frame keep their screens. HUD readouts carry their own plates. */}
         <motion.div
           aria-hidden="true"
-          style={{ opacity: copyOpacity }}
-          className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(to_left,rgba(6,6,7,0.88)_0%,rgba(6,6,7,0.55)_30%,transparent_58%)] wide:block"
+          style={{ opacity: scrimOpacity }}
+          className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(to_left,rgba(6,6,7,0.93)_0%,rgba(6,6,7,0.86)_40%,rgba(6,6,7,0.7)_54%,transparent_78%)] [mask-image:linear-gradient(to_bottom,transparent_6%,#000_24%,#000_82%,transparent_97%)] wide:block short:[mask-image:none]"
         />
         <motion.div
           aria-hidden="true"
-          style={{ opacity: copyOpacity }}
+          style={{ opacity: scrimOpacity }}
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_8%,rgba(6,6,7,0.7)_45%,transparent)] wide:h-[34%]"
         />
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[32%] bg-[linear-gradient(to_top,rgba(6,6,7,0.9)_6%,rgba(6,6,7,0.45)_50%,transparent)] wide:h-[26%]" />
@@ -140,10 +149,10 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
           <div className="viewfinder absolute inset-0 opacity-70 [--vf-size:22px]" />
           <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-4 sm:inset-x-5 sm:top-5 short:hidden">
             <RecTimecode />
-            <p className="hud hidden text-soft sm:block">4K · 24FPS · ISO 800 · ƒ/1.4 · 1/50</p>
+            <p className="hud hud-plate hidden text-soft sm:block">4K · 24FPS · ISO 800 · ƒ/1.4 · 1/50</p>
           </div>
           <div className="absolute inset-x-4 bottom-4 hidden items-end justify-between gap-6 sm:inset-x-5 sm:bottom-5 sm:flex short:hidden">
-            <p className="hud text-soft">
+            <p className="hud hud-plate text-soft">
               <span data-hud="stage">SCENE 01 · TAKE 03</span>
             </p>
             {cinematic && (
@@ -151,8 +160,8 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
                 <Scrubber scrub={scrub} className="flex w-full" />
               </motion.div>
             )}
-            <p className="hud text-soft">
-              FOCUS <span data-hud="focus" className="text-accent">3.20M</span> <span className="text-muted">·</span> 35MM
+            <p className="hud hud-plate text-soft">
+              FOCUS <span data-hud="focus" className="text-accent">3.20M</span> · 35MM
             </p>
           </div>
           {/* phones + tablets: a compact scrubber (frame counter · line · focus distance) once the copy has left the frame */}
@@ -171,13 +180,20 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
 
         {/* copy */}
         <motion.div
-          style={{ opacity: copyOpacity, y: copyY, filter: copyBlur }}
-          className="absolute inset-x-0 bottom-0 pb-[max(2.5rem,env(safe-area-inset-bottom))] wide:inset-y-0 wide:flex wide:items-center wide:pb-0"
+          style={{ y: copyY, filter: copyBlur }}
+          className="absolute inset-x-0 bottom-0 isolate pb-[max(2.5rem,env(safe-area-inset-bottom))] wide:inset-y-0 wide:flex wide:items-center wide:pb-0"
         >
-          <div className="container-cine">
+          {/* stacked layouts: the copy's own scrim — sized by the copy block, so every line (kicker included) sits on
+              ≥ 0.86 black whatever the phone height, feathering out 7rem above the kicker */}
+          <motion.div
+            aria-hidden="true"
+            style={{ opacity: scrimOpacity }}
+            className="pointer-events-none absolute inset-x-0 -top-28 bottom-0 -z-10 bg-[linear-gradient(to_top,rgba(6,6,7,0.95)_0%,rgba(6,6,7,0.86)_calc(100%_-_7rem),transparent_100%)] wide:hidden"
+          />
+          <motion.div style={{ opacity: copyOpacity }} className="container-cine">
             <div className="max-w-xl wide:ms-0 wide:max-w-[min(40rem,46vw)] wide:pt-10 short:pt-[calc(var(--header-h)-0.5rem)]">
               <motion.p
-                className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-soft sm:text-base short:mb-2 short:text-sm"
+                className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 font-ui text-sm text-soft sm:text-base short:mb-2 short:text-sm"
                 initial={{ opacity: 0, y: 12 }}
                 animate={dismissed ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
                 transition={{ duration: 0.9, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
@@ -201,12 +217,14 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
                 className="display-xl text-[clamp(4.6rem,15vw,11.5rem)] leading-[0.86] [text-shadow:0_10px_60px_rgba(0,0,0,0.5)] short:text-[min(15vw,22svh)]"
                 lineClassName="font-black"
               />
+              {/* The one ZAIN text allowed under the ~28px display floor (see index.css): on phones 6vw keeps the
+                  brand line to 2 balanced lines from 360px up; a 28px floor would make it 3 (4 at 320). */}
               <RevealLines
                 as="p"
                 play={dismissed}
                 delay={0.62}
                 lines={[brand.tagline]}
-                className="mt-4 max-w-[34rem] font-display text-[clamp(1.35rem,3.4vw,2.2rem)] leading-[1.35] text-text text-balance short:mt-2 short:text-[clamp(1.05rem,5.5svh,1.5rem)]"
+                className="mt-4 max-w-[34rem] font-display text-[clamp(1.35rem,6vw,2.2rem)] leading-[1.35] text-text short:mt-2 short:text-[clamp(1.05rem,5.5svh,1.5rem)]"
               />
               <motion.div
                 className="mt-8 flex flex-wrap items-center gap-3 short:mt-4"
@@ -230,12 +248,12 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
                 )}
               </motion.div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
 
         {/* scroll cue */}
         <motion.div style={{ opacity: cueOpacity }} className="pointer-events-none absolute bottom-8 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-3 wide:flex short:hidden" aria-hidden="true">
-          <span className="rounded-full bg-bg/80 px-3.5 py-1.5 text-sm text-soft">انزل وادخل للعدسة</span>
+          <span className="rounded-full bg-bg/85 px-3.5 py-1.5 font-ui text-sm text-soft">انزل وادخل للعدسة</span>
           <span className="relative h-12 w-px overflow-hidden bg-line-strong">
             <span className="scroll-cue-line absolute inset-0 bg-accent" />
           </span>
@@ -271,7 +289,7 @@ function setText(els: HTMLElement[], text: string): void {
 function Scrubber({ scrub, compact = false, className = '' }: { scrub: MotionValue<number>; compact?: boolean; className?: string }) {
   const start = HERO_STAGES[0]?.from ?? 0;
   return (
-    <div dir="ltr" className={`items-center gap-3 ${className}`}>
+    <div dir="ltr" className={`hud-plate items-center gap-3 ${className}`}>
       <span className="hud text-soft">
         {compact ? (
           <>
@@ -331,7 +349,7 @@ function StageCaption({
         <p className="hud text-accent">
           {pad2(index + 1)} · {stage?.code}
         </p>
-        <p className="mt-2.5 font-display text-[clamp(1.3rem,4.8vw,2rem)] leading-[1.3] text-text text-balance">{text}</p>
+        <p className="mt-2.5 font-display text-[clamp(1.75rem,5.6vw,2.2rem)] leading-[1.3] text-text">{text}</p>
       </div>
     </motion.div>
   );

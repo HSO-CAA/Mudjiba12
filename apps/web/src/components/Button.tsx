@@ -4,10 +4,10 @@ import { Link, type LinkProps } from 'react-router';
 type Variant = 'primary' | 'ghost' | 'quiet';
 type Size = 'md' | 'lg';
 
-/* Labels are short UI text → the display face (ZAIN). Text on the accent fill uses --accent-ink (picked by contrast);
+/* Labels are short UI text → the UI face (Alexandria 700; ZAIN's tails would read as broken lines at button size). Text on the accent fill uses --accent-ink (picked by contrast);
    the ghost fill stays ≥ 70% stage-black so its label keeps ≥ 7:1 even over a white video frame. */
 const base =
-  'group/btn relative inline-flex select-none items-center justify-center gap-2.5 rounded-full font-display leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-300 ease-[cubic-bezier(.16,1,.3,1)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60';
+  'group/btn relative inline-flex select-none items-center justify-center gap-2.5 rounded-full font-ui font-bold leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-300 ease-[cubic-bezier(.16,1,.3,1)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60';
 
 const variants: Record<Variant, string> = {
   primary:
@@ -17,8 +17,8 @@ const variants: Record<Variant, string> = {
 };
 
 const sizes: Record<Size, string> = {
-  md: 'h-11 px-5 text-[1.0625rem]',
-  lg: 'h-14 px-7 text-[1.125rem] sm:text-[1.1875rem]',
+  md: 'h-11 px-5 text-base',
+  lg: 'h-14 px-7 text-[1.0625rem] sm:text-[1.125rem]',
 };
 
 export function buttonClass(variant: Variant = 'primary', size: Size = 'md', extra = ''): string {

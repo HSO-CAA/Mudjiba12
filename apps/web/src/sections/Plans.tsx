@@ -55,7 +55,7 @@ export function Plans({ plans, index, total }: { plans: PublicPlan[]; index: num
                       {plan.tagline && <p className="mt-2 text-[0.9375rem] leading-7 text-soft">{plan.tagline}</p>}
                     </div>
                     {hl && (
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 font-display text-base leading-none text-[var(--accent-ink)]">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 font-ui text-sm font-bold leading-none text-[var(--accent-ink)]">
                         <SparkIcon size={12} /> الأكثر طلباً
                       </span>
                     )}
@@ -67,10 +67,10 @@ export function Plans({ plans, index, total }: { plans: PublicPlan[]; index: num
                     ) : (
                       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                         <span className="font-display text-5xl leading-none sm:text-6xl">{price.amount}</span>
-                        <span className="font-display text-xl text-accent">{price.unit}</span>
+                        <span className="font-ui text-lg font-bold text-accent">{price.unit}</span>
                       </p>
                     )}
-                    <p className="mt-3 font-display text-base text-soft">{periodLabel(plan.period)}</p>
+                    <p className="mt-3 font-ui text-[0.9375rem] text-soft">{periodLabel(plan.period)}</p>
                   </div>
 
                   <ul className="relative mt-7 flex-1 space-y-3.5">

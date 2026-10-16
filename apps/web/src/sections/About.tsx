@@ -59,7 +59,7 @@ export function About({ site, index, total }: { site: PublicSite; index: number;
             </div>
           </Reveal>
           <Reveal delay={0.18}>
-            <ul className="mt-8 flex flex-wrap gap-3 text-[0.9375rem]">
+            <ul className="mt-8 flex flex-wrap gap-3 font-ui text-[0.9375rem] font-semibold">
               {about.location && (
                 <li className="flex items-center gap-2 rounded-full border border-line-strong px-4 py-2 text-text">
                   <MapPinIcon size={16} className="text-accent" /> {about.location}
@@ -78,7 +78,7 @@ export function About({ site, index, total }: { site: PublicSite; index: number;
               <dl className="mt-12 grid grid-cols-2 gap-x-6 gap-y-8 border-t border-line pt-10 sm:grid-cols-3">
                 {stats.map((s, i) => (
                   <div key={`${s.label}-${i}`} className="flex min-w-0 flex-col-reverse justify-end">
-                    <dt className="mt-3 font-display text-[1.0625rem] leading-snug text-soft">{s.label}</dt>
+                    <dt className="mt-3 font-ui text-base leading-snug text-soft">{s.label}</dt>
                     <dd
                       dir={numeralsFor(s.suffix) === 'latn' ? 'ltr' : undefined}
                       className={`flex items-baseline gap-1 font-display text-[clamp(2.4rem,5vw,3.6rem)] leading-none ${numeralsFor(s.suffix) === 'latn' ? 'justify-end' : ''}`}

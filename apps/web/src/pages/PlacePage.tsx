@@ -84,7 +84,7 @@ function PlaceHero({ place, detail }: { place: PlaceSummary; detail?: PlaceDetai
 
       <motion.div style={{ opacity: fade }} className="container-cine relative w-full">
         <Reveal play={dismissed}>
-          <Link to="/" state={{ scrollTo: 'work' }} className="hud-plate mb-10 inline-flex items-center gap-2 font-display text-base leading-none text-text transition hover:text-accent">
+          <Link to="/" state={{ scrollTo: 'work' }} className="hud-plate mb-10 inline-flex items-center gap-2 font-ui text-[0.9375rem] leading-none text-text transition hover:text-accent">
             <ArrowBackIcon size={16} /> كل الشغل
           </Link>
         </Reveal>
@@ -93,7 +93,7 @@ function PlaceHero({ place, detail }: { place: PlaceSummary; detail?: PlaceDetai
             <Reveal play={dismissed} delay={0.05} className="mb-6 flex flex-wrap items-center gap-3">
               {place.logoUrl && <img src={place.logoUrl} alt={`شعار ${place.name}`} className="size-16 rounded-full bg-black/40 object-cover ring-1 ring-white/20" />}
               {place.category && (
-                <span className="rounded-full border border-white/15 bg-bg/70 px-4 py-2 font-display text-base leading-none text-text backdrop-blur">
+                <span className="rounded-full border border-white/15 bg-bg/70 px-4 py-2 font-ui text-[0.9375rem] leading-none text-text backdrop-blur">
                   <span className="me-2 inline-block size-2 rounded-full bg-[var(--place-accent)]" aria-hidden="true" />
                   {place.category}
                 </span>
@@ -174,11 +174,11 @@ function PlaceBody({ place, accent }: { place: PlaceDetail; accent: string }) {
               <h2 className="mb-5 flex items-center gap-2 text-muted">
                 <span className="hud" aria-hidden="true">SERVICES</span>
                 <span aria-hidden="true">·</span>
-                <span className="font-display text-[1.0625rem] leading-none text-soft">الخدمات</span>
+                <span className="font-ui text-base leading-none text-soft">الخدمات</span>
               </h2>
               <ul className="flex flex-wrap gap-2.5">
                 {place.services.map((s) => (
-                  <li key={s} className="rounded-full border border-line-strong bg-white/[0.03] px-4 py-2.5 text-[0.9375rem] text-text">
+                  <li key={s} className="rounded-full border border-line-strong bg-white/[0.03] px-4 py-2.5 font-ui text-[0.9375rem] font-semibold text-text">
                     {s}
                   </li>
                 ))}
@@ -245,7 +245,7 @@ function PlaceNav({ place }: { place: PlaceDetail }) {
       {place.prev ? (
         <Link to={`/work/${place.prev.slug}`} className="group relative flex flex-col gap-3 overflow-hidden border-b border-line p-8 transition sm:border-b-0 sm:border-e sm:p-12">
           <span className="flex items-center gap-2 text-muted">
-            <ArrowBackIcon size={14} /> <span className="hud">PREV</span> · <span className="font-display text-base leading-none text-soft">المكان السابق</span>
+            <ArrowBackIcon size={14} /> <span className="hud">PREV</span> · <span className="font-ui text-[0.9375rem] leading-none text-soft">المكان السابق</span>
           </span>
           <span className="font-display text-[2rem] leading-tight transition-colors group-hover:text-accent sm:text-[2.6rem]">{place.prev.name}</span>
           <span aria-hidden="true" className="absolute inset-0 -z-10 bg-white/[0.02] opacity-0 transition-opacity group-hover:opacity-100" />
@@ -256,7 +256,7 @@ function PlaceNav({ place }: { place: PlaceDetail }) {
       {place.next ? (
         <Link to={`/work/${place.next.slug}`} className="group relative flex flex-col items-end gap-3 overflow-hidden p-8 text-end sm:p-12">
           <span className="flex items-center gap-2 text-muted">
-            <span className="font-display text-base leading-none text-soft">المكان التالي</span> · <span className="hud">NEXT</span> <ArrowForwardIcon size={14} />
+            <span className="font-ui text-[0.9375rem] leading-none text-soft">المكان التالي</span> · <span className="hud">NEXT</span> <ArrowForwardIcon size={14} />
           </span>
           <span className="font-display text-[2rem] leading-tight transition-colors group-hover:text-accent sm:text-[2.6rem]">{place.next.name}</span>
         </Link>

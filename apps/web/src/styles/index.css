@@ -1,10 +1,17 @@
 @import 'tailwindcss';
 
 /* Self-hosted fonts (no CDN). Browsers only download the unicode ranges a page actually uses.
-   - Display: ZAIN (owner's font, by algharib) — one static heavy cut, Arabic only (below).
-   - Alexandria: the display stack's Latin / Western-digit face and the fallback for Arabic letters ZAIN
-     lacks (گ چ پ ڤ ژ ک ی …); also used by the 3D lens engravings. Heavy Alexandria matches ZAIN's stroke.
-   - IBM Plex Sans Arabic: running text (500 minimum — 400 is too thin on the dark background).
+   Three Arabic voices, each a token (+ Tailwind utility of the same name):
+   - --font-display (`font-display`, `.display-xl`): ZAIN (owner's font, by algharib) — one static heavy cut,
+     Arabic only (below). Its final ب ت ث س ش ص ض ك ل ن ى ي draw a 3–4em baseline tail: gorgeous at display
+     sizes, a broken line in small UI. DISPLAY ONLY — roughly ≥ 28px: headlines, section titles, place names,
+     stage captions, plan names, big numbers. One deliberate exception: the hero tagline (the brand line, under
+     the S5Y wordmark) drops to ~21–26px on phones / short landscape — at 28px it wraps to 3–4 lines there and
+     crowds the phone hero; it is one balanced phrase, so its tails still read as word breaks (Hero.tsx).
+   - --font-ui (`font-ui`): Alexandria 600–700 — nav, buttons, chips/badges, kickers, small labels, form
+     labels and controls: every short UI string under ~28px. Also ZAIN's fallback for Latin, Western digits
+     and the Arabic letters ZAIN lacks (گ چ پ ڤ ژ ک ی …), and the 3D lens engravings.
+   - --font-sans: IBM Plex Sans Arabic — running text (500 minimum — 400 is too thin on the dark background).
    - JetBrains Mono: tiny Latin HUD readouts only. */
 @import '@fontsource-variable/alexandria/wght.css';
 @import '@fontsource-variable/jetbrains-mono/wght.css';
@@ -47,6 +54,7 @@
   --color-danger: #ff8a80;
 
   --font-display: 'Zain Display', 'Alexandria Variable', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-ui: 'Alexandria Variable', 'IBM Plex Sans Arabic', system-ui, sans-serif;
   --font-sans: 'IBM Plex Sans Arabic', 'Alexandria Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
 
@@ -145,13 +153,17 @@
 
   /* The display face is ONE weight: ZAIN is static, and the Latin/digits Alexandria fills in are pinned to the
      same 800 so "S5Y", "2019" or "+" never come out heavier than the Arabic next to them (font-black etc.).
-     ZAIN's own space is only 0.13em while its final letters end in long tails — without extra word spacing a
-     tail runs straight into the next word ("صوّرتقصتها"). */
+     Word spacing: a tail already fills its word's advance up to the next word, so the space is the only break
+     the eye gets. ZAIN's own space (0.13em) lets a tail run straight into the next word ("صوّرتقصتها"); a wide
+     gap (the old 0.16em extra) cuts every tail loose and the phrase falls apart into floating words. A small
+     nudge keeps the tail visibly *leading into* the next word — one phrase, clear word breaks. */
   .font-display,
   .display-xl {
     font-variation-settings: 'wght' 800;
     font-synthesis-weight: none;
-    word-spacing: 0.16em;
+    word-spacing: 0.06em;
+    /* a tail never ends a line on its own: whole phrases wrap together, lines stay even */
+    text-wrap: balance;
   }
   .font-display .hud,
   .display-xl .hud,
@@ -159,6 +171,16 @@
   .display-xl .font-sans {
     font-variation-settings: normal;
     word-spacing: normal;
+  }
+
+  /* Small-UI voice: a clean heavy Alexandria (variable, so the weight is real — no ZAIN tails, no fake bold).
+     Weight/spacing are reset here so a UI label nested in display text never inherits ZAIN's settings;
+     `font-bold` / `font-extrabold` utilities still override the default 650. */
+  .font-ui {
+    font-weight: 650;
+    font-variation-settings: normal;
+    word-spacing: normal;
+    letter-spacing: 0;
   }
 
   noscript p {
@@ -222,10 +244,10 @@
       0 0 22px rgb(0 0 0 / 0.45);
   }
 
-  /* Small solid plate behind HUD readouts that float over imagery. */
+  /* Small solid plate behind HUD readouts that float over imagery: ≥ 5:1 for --color-muted even on a white frame. */
   .hud-plate {
     border-radius: 999px;
-    background: rgb(6 6 7 / 0.78);
+    background: rgb(6 6 7 / 0.82);
     padding: 0.4em 0.75em;
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
