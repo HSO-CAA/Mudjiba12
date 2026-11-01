@@ -72,7 +72,7 @@ describe('public SPA', () => {
     const html = res.body;
     expect(html).not.toContain('<!--s5y-head-->');
     expect(html.match(/<title>/g)).toHaveLength(1);
-    expect(html).toContain('<title>S5Y — صانع محتوى وتصوير فيديو</title>');
+    expect(html).toContain('<title>Raw Vision — صانع محتوى وتصوير فيديو</title>');
     expect(html).toContain('<link rel="canonical" href="https://s5y.example/">');
     expect(html).toContain('<meta property="og:locale" content="ar_IQ">');
     expect(html).toContain('application/ld+json');
@@ -84,7 +84,7 @@ describe('public SPA', () => {
     const res = await t.app.inject({ method: 'GET', url: '/work/nakhla' });
     expect(res.statusCode).toBe(200);
     const html = res.body;
-    expect(html).toContain('<title>Nakhla &lt;Café&gt; &amp; &quot;Roastery&quot; — كافيه · بغداد | S5Y</title>');
+    expect(html).toContain('<title>Nakhla &lt;Café&gt; &amp; &quot;Roastery&quot; — كافيه · بغداد | Raw Vision</title>');
     expect(html).toContain('content="قهوة مختصة &lt;b&gt;بغداد&lt;/b&gt;"');
     expect(html).toContain('<link rel="canonical" href="https://s5y.example/work/nakhla">');
     expect(html).not.toContain('<b>بغداد</b>');

@@ -9,7 +9,7 @@ import { RecTimecode } from '../components/RecTimecode';
 /** On-brand 404: an empty viewfinder ("المشهد مو موجود"). */
 export function NotFoundPage({ title = 'المشهد مو موجود', body = 'الصفحة اللي تدور عليها انحذفت أو انتقلت لمكان ثاني. خلّينا نرجعك للقطة الصح.' }: { title?: string; body?: string }) {
   const { data: site } = useSite();
-  useDocumentTitle(`${title} — ${site?.brand.name ?? 'S5Y'}`);
+  useDocumentTitle(`${title} — ${site?.brand.name ?? 'Raw Vision'}`);
   return (
     <section className="relative flex min-h-[100svh] items-center overflow-hidden pt-[var(--header-h)]">
       <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(50%_50%_at_50%_50%,color-mix(in_oklab,var(--accent)_12%,transparent),transparent_70%)]" />

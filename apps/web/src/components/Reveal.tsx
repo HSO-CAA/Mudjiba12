@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -47,10 +47,11 @@ interface LinesProps {
   play?: boolean;
   as?: 'h1' | 'h2' | 'h3' | 'p';
   id?: string;
+  style?: CSSProperties;
 }
 
 /** Staggered masked line reveal for headlines (each line slides up from behind a mask). */
-export function RevealLines({ lines, className, lineClassName, delay = 0, play, as = 'h2', id }: LinesProps) {
+export function RevealLines({ lines, className, lineClassName, delay = 0, play, as = 'h2', id, style }: LinesProps) {
   const reduced = useReducedMotion();
   const Tag = as;
   const animateProps =
@@ -58,7 +59,7 @@ export function RevealLines({ lines, className, lineClassName, delay = 0, play, 
       ? { whileInView: 'shown' as const, viewport: { once: true, margin: '0px 0px -10% 0px' } }
       : { animate: play ? ('shown' as const) : ('hidden' as const) };
   return (
-    <Tag className={className} id={id}>
+    <Tag className={className} id={id} style={style}>
       {lines.map((line, i) => (
         <span key={i} className="-my-[0.3em] block overflow-hidden py-[0.3em]">
           <motion.span

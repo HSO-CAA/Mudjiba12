@@ -32,7 +32,7 @@ export default function PlacePage() {
   useBootTask('data', !!place || !!error, 0.2);
 
   const view: PlaceSummary | undefined = place ?? summary;
-  const brandName = site?.brand.name ?? 'S5Y';
+  const brandName = site?.brand.name ?? 'Raw Vision';
   useDocumentTitle(
     notFound ? null : view ? `${view.name} — ${brandName}` : null,
     place?.summary ?? place?.description?.slice(0, 160) ?? null,

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useMotionValueEvent, useTransform, type MotionValue } from 'motion/react';
 import type { HomeData } from '@s5y/shared';
@@ -106,6 +107,15 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
   const brand = site.brand;
   const wa = whatsappUrl(site.contact.whatsapp, `هلا ${brand.name}، حاب أحجز تصوير`);
   const titleParts = brand.title.split('·').map((s) => s.trim()).filter(Boolean);
+  // A short mark ("S5Y") stays one giant line; a longer name ("Raw Vision") gets a line per word, scaled by its longest word.
+  const nameWords = brand.name.trim().split(/\s+/).filter(Boolean);
+  const nameLines = brand.name.length > 6 && nameWords.length > 1 ? nameWords : [brand.name];
+  const longest = Math.max(3, ...nameLines.map((l) => Array.from(l).length));
+  const nameScale = Math.min(1, 4 / longest);
+  const nameSize = {
+    '--name-size': `clamp(${(4.6 * nameScale).toFixed(2)}rem, ${(15 * nameScale).toFixed(2)}vw, ${(11.5 * nameScale).toFixed(2)}rem)`,
+    '--name-size-short': `min(${(15 * nameScale).toFixed(2)}vw, ${(22 * nameScale / nameLines.length).toFixed(2)}svh)`,
+  } as CSSProperties;
 
   return (
     <section
@@ -213,9 +223,10 @@ export function Hero({ data, hasWork }: { data: HomeData; hasWork: boolean }) {
                 as="p"
                 play={dismissed}
                 delay={0.45}
-                lines={[brand.name]}
-                className="display-xl text-[clamp(4.6rem,15vw,11.5rem)] leading-[0.86] [text-shadow:0_10px_60px_rgba(0,0,0,0.5)] short:text-[min(15vw,22svh)]"
+                lines={nameLines}
+                className="display-xl text-[length:var(--name-size)] leading-[0.86] [text-shadow:0_10px_60px_rgba(0,0,0,0.5)] short:text-[length:var(--name-size-short)]"
                 lineClassName="font-black"
+                style={nameSize}
               />
               {/* The one ZAIN text allowed under the ~28px display floor (see index.css): on phones 6vw keeps the
                   brand line to 2 balanced lines from 360px up; a 28px floor would make it 3 (4 at 320). */}

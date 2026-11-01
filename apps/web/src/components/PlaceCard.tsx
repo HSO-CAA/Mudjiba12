@@ -82,7 +82,7 @@ export function PlaceCard({ place, index, className = '' }: Props) {
               active={active}
               className="absolute inset-0 h-full w-full object-cover"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_0%,rgba(6,6,7,0.92)_44%,rgba(6,6,7,0.55)_66%,rgba(6,6,7,0.1)_82%,rgba(6,6,7,0.5))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,6,7,0.97)_0%,rgba(6,6,7,0.92)_42%,rgba(6,6,7,0.45)_55%,rgba(6,6,7,0.06)_66%,rgba(6,6,7,0.06)_84%,rgba(6,6,7,0.45))]" />
             <div className="absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-100 bg-[radial-gradient(90%_60%_at_50%_110%,color-mix(in_oklab,var(--place-accent)_45%,transparent),transparent_70%)]" />
             {tilt && <motion.div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: glare }} />}
           </div>

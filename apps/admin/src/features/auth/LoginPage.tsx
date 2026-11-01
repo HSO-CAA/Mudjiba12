@@ -98,7 +98,7 @@ export default function LoginPage() {
           <div className="mb-10 flex items-center gap-3">
             <BrandMark className="size-11" />
             <div>
-              <p className="text-base font-bold leading-tight">S5Y Studio</p>
+              <p className="text-base font-bold leading-tight">Raw Vision</p>
               <p className="text-[0.8125rem] text-muted">لوحة التحكم الخاصة</p>
             </div>
           </div>
@@ -200,7 +200,7 @@ export default function LoginPage() {
             <p className="mt-1 text-sm text-muted">رتّب شغلك، وخلّي الموقع يحچي عنك.</p>
           </div>
           <span className="hud text-muted" dir="ltr">
-            S5Y · 35MM
+            RAW VISION · 35MM
           </span>
         </div>
       </aside>

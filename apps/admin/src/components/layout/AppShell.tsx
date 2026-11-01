@@ -150,7 +150,7 @@ export function AppShell() {
           <BrandMark className="size-9" />
           {!collapsed && (
             <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate text-sm font-bold">S5Y Studio</p>
+              <p className="truncate text-sm font-bold">Raw Vision</p>
               <p className="truncate text-xs text-muted">لوحة التحكم</p>
             </div>
           )}
@@ -212,7 +212,7 @@ export function AppShell() {
       {/* ───── Mobile top bar ───── */}
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 pt-(--safe-top) backdrop-blur-xl lg:hidden">
         <BrandMark className="size-8" />
-        <span className="flex-1 text-sm font-bold">S5Y Studio</span>
+        <span className="flex-1 text-sm font-bold">Raw Vision</span>
         <a
           href={siteUrl('/')}
           target="_blank"

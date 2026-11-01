@@ -54,7 +54,7 @@ export function BrandTab({ doc, update, errors }: SettingsTabProps) {
         </FormSection>
         <FormSection title="العلامة واللون" description="العلامة اللاتينية القصيرة تنحفر على العدسة ثلاثية الأبعاد، واللون يمشي على كل الموقع.">
           <div className="flex flex-col gap-5">
-            <Field label="العلامة (Hero mark)" hint="لحد 12 حرف لاتيني، مثل S5Y." error={errors['brand.heroMark']}>
+            <Field label="العلامة (Hero mark)" hint="لحد 12 حرف لاتيني، مثل RAW VISION." error={errors['brand.heroMark']}>
               <Input value={b.heroMark} onChange={(e) => set('heroMark', e.target.value.toUpperCase())} ltr maxLength={12} className="num max-w-48 uppercase" />
             </Field>
             <Field label="لون الموقع" error={errors['brand.accent']}>
@@ -73,7 +73,7 @@ export function BrandTab({ doc, update, errors }: SettingsTabProps) {
             <span className="flex items-center gap-1.5">
               <span className="size-1.5 animate-rec rounded-full bg-rec" /> REC
             </span>
-            <span>{b.heroMark || 'S5Y'} · 35MM</span>
+            <span>{b.heroMark || 'RAW VISION'} · 35MM</span>
           </div>
           <div className="mt-10 grid place-items-center">
             <div className="grid size-24 place-items-center rounded-full border border-white/10 bg-[radial-gradient(circle_at_35%_30%,#2a2a31,#0b0b0d_65%)] shadow-[inset_0_0_0_6px_#121216]">

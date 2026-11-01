@@ -31,7 +31,7 @@ export function Header({ site, hasPlans }: { site: PublicSite | undefined; hasPl
   const [open, setOpen] = useState(false);
   const go = useSectionNav();
   const items = navItems(site).filter((i) => i.id !== 'plans' || hasPlans);
-  const name = site?.brand.name ?? 'S5Y';
+  const name = site?.brand.name ?? 'Raw Vision';
   const handle = site?.brand.handle ?? '';
 
   useEffect(() => {

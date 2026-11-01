@@ -75,10 +75,10 @@ export function Lens({ accent, mark, profile, interactive = true }: LensProps) {
 
   const textures = useMemo(
     () => ({
-      barrel: createBarrelTexture({ circumference: Math.PI * 2 * 0.86, height: 0.46 }, mark || 'S5Y', accent, 3),
+      barrel: createBarrelTexture({ circumference: Math.PI * 2 * 0.86, height: 0.46 }, mark || 'RAW VISION', accent, 3),
       stops: createStopScaleTexture({ circumference: Math.PI * 2 * 0.87, height: 0.12 }, 3),
       distance: createDistanceScaleTexture({ circumference: Math.PI * 2 * 0.905, height: 0.28 }, accent, 3),
-      front: createFrontRingTexture(`${(mark || 'S5Y').toUpperCase()} CINE PRIME ● 35mm 1:1.4 ● Ø95 ● LENS MADE FOR STORIES ●`, accent, 0.8 / 1.02),
+      front: createFrontRingTexture(`${(mark || 'RAW VISION').toUpperCase()} CINE PRIME ● 35mm 1:1.4 ● Ø95 ● LENS MADE FOR STORIES ●`, accent, 0.8 / 1.02),
     }),
     [accent, mark],
   );

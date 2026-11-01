@@ -7,11 +7,11 @@ export const SITE_SETTINGS_KEY = 'site';
 /** Exact defaults from docs/CONTRACT.md. */
 export const DEFAULT_SETTINGS: SiteSettings = {
   brand: {
-    name: 'S5Y',
+    name: 'Raw Vision',
     handle: 's5y',
     title: 'صانع محتوى · تصوير ومونتاج',
     tagline: 'أحوّل الأماكن إلى قصص تنشاف وتنحفظ',
-    heroMark: 'S5Y',
+    heroMark: 'RAW VISION',
     accent: '#e9b35f',
   },
   about: {
@@ -26,8 +26,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   hero: { videoIds: [] },
   sections: { about: true, showreel: true, plans: false, contact: true },
   seo: {
-    title: 'S5Y — صانع محتوى وتصوير فيديو',
-    description: 'بورتفوليو S5Y: فيديوهات وريلز احترافية للأماكن والبراندات.',
+    title: 'Raw Vision — صانع محتوى وتصوير فيديو',
+    description: 'بورتفوليو Raw Vision: فيديوهات وريلز احترافية للأماكن والبراندات.',
     keywords: 'تصوير, مونتاج, صانع محتوى, ريلز, العراق',
     ogImageKey: null,
   },

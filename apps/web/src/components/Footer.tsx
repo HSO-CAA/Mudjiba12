@@ -7,10 +7,17 @@ import { Magnetic } from './Magnetic';
 import { SocialIcon } from './SocialIcon';
 import { Reveal, RevealLines } from './Reveal';
 
+/** The full-width wordmark shrinks with the mark's length so longer names (e.g. "RAW VISION") still fit one line. */
+function wordmarkSize(mark: string): string {
+  const len = Math.max(3, Array.from(mark).length);
+  const k = Math.min(1, 3 / len);
+  return `clamp(${(6 * k).toFixed(2)}rem, ${(26 * k).toFixed(2)}vw, ${(24 * k).toFixed(2)}rem)`;
+}
+
 export function Footer({ site }: { site: PublicSite | undefined }) {
   const go = useSectionNav();
   const year = new Date().getFullYear();
-  const name = site?.brand.name ?? 'S5Y';
+  const name = site?.brand.name ?? 'Raw Vision';
   const mark = site?.brand.heroMark || name;
   const wa = site ? whatsappUrl(site.contact.whatsapp, `هلا ${name}، حاب أحجز تصوير`) : null;
   const socials = site ? socialLinks(site) : [];
@@ -86,7 +93,8 @@ export function Footer({ site }: { site: PublicSite | undefined }) {
       <div className="relative select-none overflow-hidden" aria-hidden="true">
         <p
           dir="ltr"
-          className="whitespace-nowrap bg-gradient-to-b from-white/[0.6] via-white/[0.24] to-transparent bg-clip-text pb-4 text-center font-display text-[clamp(6rem,26vw,24rem)] leading-[0.8] tracking-[-0.04em] text-transparent"
+          className="whitespace-nowrap bg-gradient-to-b from-accent via-accent/55 to-accent/10 bg-clip-text pb-4 text-center font-display leading-[0.8] tracking-[-0.04em] text-transparent"
+          style={{ fontSize: wordmarkSize(mark) }}
         >
           {mark}
         </p>

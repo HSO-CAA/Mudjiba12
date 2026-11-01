@@ -251,7 +251,7 @@ function InquiryDetail({ inquiry, onDeleted, bare = false }: { inquiry: AdminInq
   });
 
   const wa = inquiry.phone ? whatsappNumber(inquiry.phone) : null;
-  const greeting = `هلا ${inquiry.name}، أنا ${user?.name ?? 'S5Y'}. وصلتني رسالتك من الموقع.`;
+  const greeting = `هلا ${inquiry.name}، أنا ${user?.name ?? 'Raw Vision'}. وصلتني رسالتك من الموقع.`;
 
   const setStatus = (status: InquiryStatus) => {
     if (status === inquiry.status) return;

@@ -343,15 +343,21 @@ function sourceFor(look: Look, accent: string, seed: number, seconds: number, si
   }
 }
 
-function overlay(title: string, subtitle: string, accent: string, withTimecode: boolean): string[] {
+/** Brand gold for text burned into demo media; the site darkens the lower part of posters and covers behind its own
+ *  titles, so burned-in text sits in the upper part, in gold with a soft shadow, where nothing covers it. */
+const GOLD = '0xf2c46b';
+const GOLD_LIGHT = '0xf3d9a6';
+const SHADOW = 'shadowcolor=black@0.55:shadowx=3:shadowy=3';
+
+function overlay(title: string, subtitle: string, _accent: string, withTimecode: boolean): string[] {
   if (!FONTS.bold || !FONTS.regular) return [];
   const bold = FONTS.bold;
   const regular = FONTS.regular;
   const filters = [
-    'drawbox=x=0:y=ih-300:w=iw:h=300:color=black@0.38:t=fill',
-    `drawtext=fontfile=${bold}:text='${drawtextEscape(title)}':fontcolor=white:fontsize=58:x=56:y=h-228`,
-    `drawtext=fontfile=${regular}:text='${drawtextEscape(subtitle)}':fontcolor=${hex(accent)}:fontsize=28:x=58:y=h-140`,
-    `drawtext=fontfile=${bold}:text='S5Y':fontcolor=white@0.85:fontsize=30:x=56:y=64`,
+    'drawbox=x=0:y=128:w=iw:h=236:color=black@0.42:t=fill',
+    `drawtext=fontfile=${bold}:text='${drawtextEscape(title)}':fontcolor=${GOLD}:fontsize=58:x=56:y=168:${SHADOW}`,
+    `drawtext=fontfile=${regular}:text='${drawtextEscape(subtitle)}':fontcolor=${GOLD_LIGHT}:fontsize=28:x=58:y=258:${SHADOW}`,
+    `drawtext=fontfile=${bold}:text='RAW VISION':fontcolor=${GOLD}:fontsize=30:x=56:y=64:${SHADOW}`,
   ];
   if (withTimecode) {
     filters.push(
@@ -399,8 +405,9 @@ async function renderStill(ctx: AppContext, out: string, place: DemoPlace, kind:
     const src = sourceFor('gradient', place.accent, place.year, 3, { w: 1600, h: 1000 });
     const text = withText && FONTS.bold && FONTS.regular
       ? [
-          `drawtext=fontfile=${FONTS.bold}:text='${drawtextEscape(place.latin)}':fontcolor=white:fontsize=96:x=90:y=h-250`,
-          `drawtext=fontfile=${FONTS.regular}:text='${drawtextEscape(`${place.city} · S5Y`)}':fontcolor=${hex(place.accent)}:fontsize=40:x=94:y=h-130`,
+          'drawbox=x=0:y=ih*0.27:w=iw:h=230:color=black@0.42:t=fill',
+          `drawtext=fontfile=${FONTS.bold}:text='${drawtextEscape(place.latin)}':fontcolor=${GOLD}:fontsize=96:x=(w-tw)/2:y=h*0.30:${SHADOW}`,
+          `drawtext=fontfile=${FONTS.regular}:text='${drawtextEscape(`${place.city} · RAW VISION`)}':fontcolor=${GOLD_LIGHT}:fontsize=40:x=(w-tw)/2:y=h*0.30+128:${SHADOW}`,
         ]
       : [];
     return ['-f', 'lavfi', '-i', src.input, '-vf', [...src.filters, "select='eq(n,45)'", ...text].join(','), '-frames:v', '1', '-q:v', '2', out];

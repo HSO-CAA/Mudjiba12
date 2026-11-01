@@ -138,7 +138,7 @@ describe('public portfolio data', () => {
 
   it('exposes the public site document without storage keys', async () => {
     const { body } = await get<PublicSite>('/api/public/site');
-    expect(body.brand.name).toBe('S5Y');
+    expect(body.brand.name).toBe('Raw Vision');
     expect(body.about).toHaveProperty('avatarUrl', null);
     expect(body.about).not.toHaveProperty('avatarKey');
     expect(body.seo).toHaveProperty('ogImageUrl', null);
