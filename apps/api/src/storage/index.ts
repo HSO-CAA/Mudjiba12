@@ -20,7 +20,7 @@ export interface CreateStorageOptions {
 }
 
 export function createStorage(config: Config, options: CreateStorageOptions = {}): StorageDriver {
-  const local = new LocalStorage(config.storage.dir);
+  const local = new LocalStorage(config.storage.dir, config.mediaPublicUrl);
   let remote: StorageDriver;
   if (config.storage.driver === 's3') {
     if (!config.storage.s3) throw new Error('S3 storage selected but S3 configuration is incomplete');

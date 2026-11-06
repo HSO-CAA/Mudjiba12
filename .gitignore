@@ -14,3 +14,5 @@ coverage/
 *.tsbuildinfo
 # static preview build (apps/web/scripts/build-preview.mjs)
 /preview/
+# Netlify build output (deploy/netlify-build.mjs)
+/netlify-dist/

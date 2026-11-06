@@ -13,6 +13,7 @@ import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 import { publicRoutes } from './routes/public/index.js';
 import { registerFrontends } from './web/frontends.js';
+import { netlifyRewriteUrl, type ProxiedRequest } from './web/netlify.js';
 import { mediaRoutes } from './web/media.js';
 import { seoRoutes } from './web/seo.js';
 
@@ -67,6 +68,14 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     routerOptions: { ignoreTrailingSlash: true, maxParamLength: 200 },
     forceCloseConnections: 'idle',
     return503OnClosing: true,
+    rewriteUrl: netlifyRewriteUrl(config.netlifyProxySecret),
+  });
+
+  // A request the verified Netlify proxy forwarded carries the visitor's address (see web/netlify.ts). Pin it
+  // as `request.ip` before any other hook, so rate limits, sessions and logs all see the real visitor.
+  app.addHook('onRequest', async (request) => {
+    const visitor = (request.raw as ProxiedRequest).s5yClientIp;
+    if (visitor) Object.defineProperty(request, 'ip', { value: visitor, configurable: true, enumerable: true });
   });
 
   const ctx: AppContext = await createContext({ config, log: app.log, prisma: options.prisma, tools: options.tools });
@@ -100,7 +109,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(async (scope) => adminRoutes(scope, ctx), { prefix: '/api/admin' });
   await app.register(async (scope) => mediaRoutes(scope, ctx));
   await app.register(async (scope) => seoRoutes(scope, ctx));
-  const frontends = await registerFrontends(app, ctx);
+  const frontends = config.serveFrontends ? await registerFrontends(app, ctx) : { web: false, admin: false };
 
   app.setNotFoundHandler({ preHandler: app.rateLimit() }, async (request, reply) =>
     sendError(request, reply, notFound(request.url.startsWith('/api') ? 'المسار غير موجود' : 'الصفحة غير موجودة')),

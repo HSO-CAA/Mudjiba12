@@ -13,8 +13,8 @@ import { videoWithPlaceInclude } from '../../services/serializers.js';
 import { StorageObjectTooLargeError } from '../../storage/types.js';
 
 /** Max bytes per PATCH chunk (contract: 8 MiB). */
+/** Default chunk size; the running value comes from UPLOAD_CHUNK_MB (`config.uploadChunkBytes`). */
 export const CHUNK_SIZE = 8 * 1024 * 1024;
-const CHUNK_BODY_LIMIT = CHUNK_SIZE + 1024 * 1024;
 const DISK_HEADROOM_BYTES = 256 * 1024 * 1024;
 
 const STATUSES = ['UPLOADING', 'PROCESSING', 'READY', 'FAILED'] as const satisfies readonly VideoStatus[];
@@ -105,6 +105,8 @@ class KeyedLock {
 export async function videoRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const { prisma, serialize, files, storage } = ctx;
   const locks = new KeyedLock();
+  const chunkSize = ctx.config.uploadChunkBytes;
+  const CHUNK_BODY_LIMIT = chunkSize + 1024 * 1024;
 
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: CHUNK_BODY_LIMIT }, (_req, body, done) =>
     done(null, body),
@@ -118,7 +120,7 @@ export async function videoRoutes(app: FastifyInstance, ctx: AppContext): Promis
 
   const sessionOf = (video: Video, offset: number): VideoUploadSession => ({
     videoId: video.id,
-    chunkSize: CHUNK_SIZE,
+    chunkSize,
     offset,
     size: Number(video.sizeBytes),
   });
@@ -219,7 +221,7 @@ export async function videoRoutes(app: FastifyInstance, ctx: AppContext): Promis
       }
       const size = Number(video.sizeBytes);
       if (body.length === 0) throw badRequest('الجزء المرسل فارغ');
-      if (body.length > CHUNK_SIZE) throw badRequest(`حجم الجزء أكبر من المسموح (${CHUNK_SIZE} بايت)`);
+      if (body.length > chunkSize) throw badRequest(`حجم الجزء أكبر من المسموح (${chunkSize} بايت)`);
       if (current + body.length > size) throw badRequest('البيانات المرسلة أكبر من حجم الملف المعلن');
 
       const handle = await fs.open(files.uploadTempPath(id), 'r+');

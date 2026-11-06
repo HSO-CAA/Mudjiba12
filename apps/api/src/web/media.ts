@@ -44,7 +44,14 @@ export async function mediaRoutes(app: FastifyInstance, ctx: AppContext): Promis
       const type = CONTENT_TYPES[ext];
       if (type) reply.header('content-type', type);
       reply.header('cache-control', IMMUTABLE_CACHE_CONTROL);
-      reply.header('cross-origin-resource-policy', 'same-site');
+      if (ctx.config.mediaPublicUrl) {
+        // The site is on another origin (e.g. Netlify): images, <video> and WebGL video textures there load these
+        // public files cross-origin, so they need CORS and a cross-origin resource policy.
+        reply.header('access-control-allow-origin', '*');
+        reply.header('cross-origin-resource-policy', 'cross-origin');
+      } else {
+        reply.header('cross-origin-resource-policy', 'same-site');
+      }
       reply.header('x-content-type-options', 'nosniff');
     },
   });

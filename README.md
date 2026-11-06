@@ -47,7 +47,59 @@ npm run dev
 
 تريد تجرب نسخة الإنتاج على جهازك؟ `npm run build` وبعدين `npm start` ← الموقع على http://localhost:4000 ولوحة التحكم على http://localhost:4000/studio
 
-## النشر على سيرفر (الطريقة الموصى بيها)
+## النشر على Netlify + Railway
+
+- **Netlify** يرفع الموقع ولوحة التحكم (سريع ومجاني).
+- **Railway** يشغّل السيرفر: الـ API، ورفع ومعالجة الفيديوهات، وقاعدة البيانات (تقريباً 5$ بالشهر).
+- Netlify يوصّل طلبات الـ API للسيرفر، فكلشي يشتغل من نفس الرابط.
+
+### 1) جهّز قيمتين سريتين (نفسهن بـ Railway وNetlify)
+- `ADMIN_PATH`: عنوان سري للوحة التحكم، مثل `/studio-k39x7q`.
+- `NETLIFY_PROXY_SECRET`: نص عشوائي طويل، 40 حرف ورقم بالإنگليزي.
+
+### 2) Railway (السيرفر)
+1. **railway.com** ← New Project ← **Deploy from GitHub repo** ← `HSO-CAA/Mudjiba12`. من **Settings ← Source** اختار الفرع `claude/hopeful-galileo-vb3plm`. يبني الـ Dockerfile لحاله (`railway.json`).
+2. بنفس المشروع: **New ← Database ← PostgreSQL** (قاعدة البيانات).
+3. خدمة السيرفر ← **Settings ← Networking ← Generate Domain**. الرابط اللي يطلع، مثل `https://raw-vision.up.railway.app`، هو `API_URL`.
+4. خدمة السيرفر ← **Volumes ← Add Volume** ← المسار `/data/storage` (هنا تنحفظ الفيديوهات).
+5. خدمة السيرفر ← **Variables**:
+   ```
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   PUBLIC_URL=https://اسم-موقعك.netlify.app
+   MEDIA_PUBLIC_URL=https://raw-vision.up.railway.app
+   ADMIN_PATH=/studio-k39x7q
+   ADMIN_EMAIL=ايميلك
+   ADMIN_PASSWORD=كلمة سر قوية (10 أحرف أو أكثر)
+   NETLIFY_PROXY_SECRET=النص العشوائي
+   SERVE_FRONTENDS=false
+   UPLOAD_CHUNK_MB=4
+   TRUST_PROXY=true
+   RAILWAY_RUN_UID=0
+   ```
+   `RAILWAY_RUN_UID=0` حتى السيرفر يگدر يكتب بالـ Volume. وإذا تريد قاعدة بيانات Supabase بدل Postgres مال Railway، حط رابط **Session pooler** بـ `DATABASE_URL`.
+6. من يخلص، افتح `https://raw-vision.up.railway.app/api/health`، لازم يطلع `"ok":true`.
+
+### 3) Netlify (الموقع + لوحة التحكم)
+1. **app.netlify.com** ← Add new site ← **Import an existing project** ← GitHub ← `HSO-CAA/Mudjiba12` ← الفرع `claude/hopeful-galileo-vb3plm`. باقي الإعدادات يقراها من `netlify.toml`.
+2. **Site configuration ← Environment variables**:
+   ```
+   API_URL=https://raw-vision.up.railway.app
+   ADMIN_PATH=/studio-k39x7q
+   NETLIFY_PROXY_SECRET=نفس النص اللي بـ Railway
+   ```
+3. **Deploy**، وخذ رابط موقعك (`https://xxxx.netlify.app`).
+4. ارجع لـ Railway وحط هذا الرابط بـ `PUBLIC_URL`.
+
+### 4) جرّب
+- الموقع: `https://xxxx.netlify.app`
+- لوحة التحكم: `https://xxxx.netlify.app/studio-k39x7q`
+
+### ملاحظات
+- لمن تغيّر اسم الموقع أو وصفه (SEO) من لوحة التحكم: Netlify ← **Deploys ← Trigger deploy**، حتى يتحدّث الوصف اللي يطلع لمن أحد يشارك رابطك.
+- **دومين خاص:** Netlify ← Domain management، وبعدين حدّث `PUBLIC_URL` بـ Railway.
+- الفيديوهات تنعرض من سيرفر Railway مباشرة (`MEDIA_PUBLIC_URL`)، والباقي من Netlify.
+
+## النشر على سيرفر بـ Docker (بديل: كلشي على سيرفر واحد)
 
 أي سيرفر VPS بيه Docker و Docker Compose (مثل Hetzner أو DigitalOcean أو Contabo). يفضّل **2GB رام على الأقل** (4GB أحسن لمعالجة الفيديو).
 

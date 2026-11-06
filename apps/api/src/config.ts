@@ -82,6 +82,21 @@ export interface Config {
   ffmpegPath: string;
   ffprobePath: string;
   maxVideoBytes: number;
+  /** Bytes per resumable-upload chunk (UPLOAD_CHUNK_MB; smaller behind proxies with body limits). */
+  uploadChunkBytes: number;
+  /**
+   * Absolute origin that serves `/media/*` for the local driver (MEDIA_PUBLIC_URL), e.g. the API's own
+   * address when the site itself is hosted elsewhere (Netlify). null → root-relative `/media/…` URLs.
+   */
+  mediaPublicUrl: string | null;
+  /**
+   * Shared secret of the Netlify proxy (NETLIFY_PROXY_SECRET). Requests rewritten by the site's Netlify
+   * `_redirects` arrive under `/_nf/<secret>/…`; only those may name the visitor's address in
+   * `x-nf-client-connection-ip`. null → the prefix is not recognised.
+   */
+  netlifyProxySecret: string | null;
+  /** Serve the built site and dashboard (SERVE_FRONTENDS); off when Netlify hosts them. */
+  serveFrontends: boolean;
   webDist: string;
   adminDist: string;
   logLevel: LogLevel;
@@ -156,6 +171,17 @@ const envShape = {
   FFMPEG_PATH: z.preprocess(emptyToUndefined, z.string().default('ffmpeg')),
   FFPROBE_PATH: z.preprocess(emptyToUndefined, z.string().default('ffprobe')),
   MAX_VIDEO_MB: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1024 * 64).default(2048)),
+  UPLOAD_CHUNK_MB: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(32).default(8)),
+  MEDIA_PUBLIC_URL: z.preprocess(emptyToUndefined, z.url({ protocol: /^https?$/ }).optional()),
+  NETLIFY_PROXY_SECRET: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_-]{24,128}$/, 'NETLIFY_PROXY_SECRET must be 24–128 letters, digits, "-" or "_"')
+      .optional(),
+  ),
+  SERVE_FRONTENDS: optionalBoolean,
   WEB_DIST: z.preprocess(emptyToUndefined, z.string().default('../web/dist')),
   ADMIN_DIST: z.preprocess(emptyToUndefined, z.string().default('../admin/dist')),
   LOG_LEVEL: z.preprocess(
@@ -290,6 +316,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
     ffmpegPath: env.FFMPEG_PATH,
     ffprobePath: env.FFPROBE_PATH,
     maxVideoBytes: env.MAX_VIDEO_MB * 1024 * 1024,
+    uploadChunkBytes: env.UPLOAD_CHUNK_MB * 1024 * 1024,
+    mediaPublicUrl: env.MEDIA_PUBLIC_URL ? new URL(env.MEDIA_PUBLIC_URL).origin : null,
+    netlifyProxySecret: env.NETLIFY_PROXY_SECRET ?? null,
+    serveFrontends: env.SERVE_FRONTENDS ?? true,
     webDist: resolveFromApiRoot(env.WEB_DIST),
     adminDist: resolveFromApiRoot(env.ADMIN_DIST),
     logLevel: env.LOG_LEVEL,

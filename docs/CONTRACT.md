@@ -145,6 +145,10 @@ Env files (API, `create-admin`, `db:seed`, and `db:migrate`/`db:deploy` through 
 | `FFMPEG_PATH` / `FFPROBE_PATH` | `ffmpeg` / `ffprobe` | auto-detected; processing disabled if missing |
 | `MAX_VIDEO_MB` | `2048` | |
 | `WEB_DIST` / `ADMIN_DIST` | `../web/dist` / `../admin/dist` (relative to `apps/api`) | prod static roots; skipped if missing |
+| `SERVE_FRONTENDS` | `true` | `false` when Netlify hosts the site and dashboard (API-only server) |
+| `UPLOAD_CHUNK_MB` | `8` | resumable upload chunk size (1–32); `4` behind Netlify's proxy |
+| `MEDIA_PUBLIC_URL` | — | absolute origin for local `/media/*` URLs (the API's own address when the site is elsewhere); adds `Access-Control-Allow-Origin: *` + `CORP: cross-origin` on media |
+| `NETLIFY_PROXY_SECRET` | — | shared with the Netlify build; requests under `/_nf/<secret>/…` are the site's proxy and may name the visitor in `x-nf-client-connection-ip` (used for rate limits) |
 | `LOG_LEVEL` | `info` | |
 
 ## Default site settings (seeded on first boot when missing)

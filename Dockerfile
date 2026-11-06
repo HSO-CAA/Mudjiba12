@@ -80,7 +80,8 @@ RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
 # Runs as the unprivileged `node` user (uid 1000); only /data/storage is writable.
 USER node
 WORKDIR /app/apps/api
-VOLUME ["/data/storage"]
+# Media lives in /data/storage: mount a volume there (docker-compose.yml does; on Railway attach a volume at
+# that path). No VOLUME instruction, so hosts that manage volumes themselves (Railway) can build the image.
 EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \

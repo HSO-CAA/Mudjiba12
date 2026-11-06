@@ -8,12 +8,17 @@ const USAGE_CACHE_MS = 60_000;
 
 export class LocalStorage implements StorageDriver {
   readonly kind = 'local' as const;
-  readonly publicOrigin = null;
+  /** Set when `/media` is reached on another origin than the site (MEDIA_PUBLIC_URL); feeds the CSP. */
+  readonly publicOrigin: string | null;
   readonly localMediaDir: string;
   private usageCache: { at: number; bytes: number } | null = null;
 
-  constructor(readonly root: string) {
+  constructor(
+    readonly root: string,
+    private readonly mediaOrigin: string | null = null,
+  ) {
     this.localMediaDir = root;
+    this.publicOrigin = mediaOrigin;
   }
 
   /** Absolute path of a key, guaranteed to stay inside the storage root. */
@@ -25,7 +30,7 @@ export class LocalStorage implements StorageDriver {
   }
 
   url(key: string): string {
-    return `/media/${key}`;
+    return `${this.mediaOrigin ?? ''}/media/${key}`;
   }
 
   async putFile(key: string, filePath: string, options: PutOptions): Promise<void> {
