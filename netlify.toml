@@ -1,0 +1,9 @@
+# Netlify hosts the public site and the dashboard; the API runs on its own server (Railway, a VPS…).
+# Set these in Netlify → Site configuration → Environment variables (see README → Netlify):
+#   API_URL, ADMIN_PATH, NETLIFY_PROXY_SECRET  (and SUPABASE_URL only if media is on Supabase Storage)
+[build]
+  command = "node deploy/netlify-build.mjs"
+  publish = "netlify-dist"
+
+[build.environment]
+  NODE_VERSION = "22"

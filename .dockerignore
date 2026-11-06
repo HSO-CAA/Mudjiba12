@@ -1,0 +1,24 @@
+# Keep the build context small and never ship secrets or local media.
+# NOTE: patterns are anchored on purpose — `**/storage` would also drop apps/api/src/storage (source code).
+**/node_modules
+apps/*/dist
+packages/*/dist
+apps/api/storage
+/storage
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+**/*.log
+**/coverage
+**/.vite
+**/*.tsbuildinfo
+**/.DS_Store
+**/test-results
+**/playwright-report
+# Docs/deploy files that the image doesn't need (editing them won't invalidate the build cache).
+README.md
+docs
+docker-compose*.yml
+deploy/Caddyfile

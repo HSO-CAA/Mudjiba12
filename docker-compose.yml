@@ -1,0 +1,101 @@
+# S5Y Portfolio — production stack
+#   1) cp .env.example .env   and fill the values
+#   2) docker compose up -d --build
+#   3) (HTTPS on your domain)  docker compose --profile https up -d
+#
+# Project name "s5y" → volumes are called s5y_pgdata (database) and s5y_media (videos & images).
+name: s5y
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: s5y
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: s5y
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U s5y -d s5y"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+  app:
+    build: .
+    image: s5y-portfolio:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Empty → the "db" container below. Set DATABASE_URL in .env to use another database (e.g. Supabase's Session pooler).
+      DATABASE_URL: ${DATABASE_URL:-postgresql://s5y:${POSTGRES_PASSWORD}@db:5432/s5y?schema=public}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:4000}
+      ADMIN_PATH: ${ADMIN_PATH:-/studio}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-S5Y}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      MAX_VIDEO_MB: ${MAX_VIDEO_MB:-2048}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Empty → auto-detect (supabase when SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are set, otherwise local).
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
+      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET:-media}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+    volumes:
+      # Local media, and with Supabase/S3 the video originals until they are processed.
+      - media:/data/storage
+    ports:
+      # APP_BIND=127.0.0.1 closes port 4000 to the internet once HTTPS (Caddy) is running.
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-4000}:4000"
+    # The server finishes in-flight requests for up to 15 s on shutdown.
+    stop_grace_period: 20s
+    logging: *logging
+
+  # Automatic HTTPS (Let's Encrypt) for your domain. Point the domain's DNS to this server first.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    command:
+      - sh
+      - -c
+      - '[ -n "$$DOMAIN" ] || { echo "[s5y] set DOMAIN=yourdomain.com in .env to use HTTPS" >&2; exit 1; }; exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile'
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *logging
+
+volumes:
+  pgdata:
+  media:
+  caddy_data:
+  caddy_config:

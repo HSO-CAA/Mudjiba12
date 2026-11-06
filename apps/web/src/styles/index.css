@@ -1,0 +1,370 @@
+@import 'tailwindcss';
+
+/* Self-hosted fonts (no CDN). Browsers only download the unicode ranges a page actually uses.
+   Three Arabic voices, each a token (+ Tailwind utility of the same name):
+   - --font-display (`font-display`, `.display-xl`): ZAIN (owner's font, by algharib) — one static heavy cut,
+     Arabic only (below). Its final ب ت ث س ش ص ض ك ل ن ى ي draw a 3–4em baseline tail: gorgeous at display
+     sizes, a broken line in small UI. DISPLAY ONLY — roughly ≥ 28px: headlines, section titles, place names,
+     stage captions, plan names, big numbers. One deliberate exception: the hero tagline (the brand line, under
+     the S5Y wordmark) drops to ~21–26px on phones / short landscape — at 28px it wraps to 3–4 lines there and
+     crowds the phone hero; it is one balanced phrase, so its tails still read as word breaks (Hero.tsx).
+   - --font-ui (`font-ui`): Alexandria 600–700 — nav, buttons, chips/badges, kickers, small labels, form
+     labels and controls: every short UI string under ~28px. Also ZAIN's fallback for Latin, Western digits
+     and the Arabic letters ZAIN lacks (گ چ پ ڤ ژ ک ی …), and the 3D lens engravings.
+   - --font-sans: IBM Plex Sans Arabic — running text (500 minimum — 400 is too thin on the dark background).
+   - JetBrains Mono: tiny Latin HUD readouts only. */
+@import '@fontsource-variable/alexandria/wght.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+@import '@fontsource/ibm-plex-sans-arabic/500.css';
+@import '@fontsource/ibm-plex-sans-arabic/600.css';
+@import '@fontsource/ibm-plex-sans-arabic/700.css';
+
+/* ZAIN mob variable 800 — a single static weight (OS/2 says 400): served for every heavy request (700–900) so
+   the browser never fakes bold on top of it. unicode-range lists exactly what the file covers — Arabic letters,
+   harakat, Arabic-Indic digits, Arabic punctuation and the spacing/quote marks used inside Arabic text — so Latin
+   letters, Western digits and the letters it lacks go straight to Alexandria (next in --font-display) instead of
+   a system font. Keep this list in sync if the font file changes (fc-query --format='%{charset}' <file>). */
+@font-face {
+  font-family: 'Zain Display';
+  src: url('../assets/fonts/zain-800.woff2') format('woff2');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0020-0022, U+0027-0029, U+002D-002F, U+003A, U+00AB, U+00B7, U+00BB, U+060C, U+061B, U+061F, U+0621-063A,
+    U+0640-0655, U+0660-066E, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026, U+FD3E-FD3F, U+FE82, U+FE84,
+    U+FE86, U+FE88, U+FE8A-FE8C, U+FE8E, U+FE90-FE92, U+FE94, U+FE96-FE98, U+FE9A-FE9C, U+FE9E-FEA0, U+FEA2-FEA4,
+    U+FEA6-FEA8, U+FEAA, U+FEAC, U+FEAE, U+FEB0, U+FEB2-FEB4, U+FEB6-FEB8, U+FEBA-FEBC, U+FEBE-FEC0, U+FEC2-FEC4,
+    U+FEC6-FEC8, U+FECA-FECC, U+FECE-FED0, U+FED2-FED4, U+FED6-FED8, U+FEDA-FEDC, U+FEDE-FEE0, U+FEE2-FEE4,
+    U+FEE6-FEE8, U+FEEA-FEEC, U+FEEE, U+FEF0, U+FEF2-FEFC;
+}
+
+@theme {
+  --color-bg: #060607;
+  --color-surface: #0e0e11;
+  --color-surface-2: #16161a;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.16);
+  /* Text ramp on the near-black stage (contrast on --color-bg / --color-surface):
+     text 17:1 · soft (running copy) 12:1 · muted (meta labels) 8.3:1 / 7.9:1. Never fade text with opacity. */
+  --color-text: #f3f0ea;
+  --color-soft: #d6d1c8;
+  --color-muted: #aba69d;
+  --color-rec: #ff3b30;
+  --color-danger: #ff8a80;
+
+  --font-display: 'Zain Display', 'Alexandria Variable', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-ui: 'Alexandria Variable', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans Arabic', 'Alexandria Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
+
+  --ease-cine: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-shutter: cubic-bezier(0.77, 0, 0.18, 1);
+
+  --breakpoint-xs: 26rem;
+}
+
+/* Side-by-side hero (lens left, copy right): landscape screens from 768px. Portrait tablets keep the stacked
+   phone composition so the copy never sits on top of the lens. Mirrors `useWideHero()` in JS. */
+@custom-variant wide (@media (min-width: 768px) and (orientation: landscape));
+/* Phones held sideways: the hero type scales with the height and HUD text steps aside. */
+@custom-variant short (@media (orientation: landscape) and (max-height: 540px));
+
+/* Runtime accent (site.brand.accent) — set on :root by the app (lib/color.ts → applyAccent).
+   The owner can pick any accent, so text never uses the raw colour:
+   - `text-accent` / `text-place` read --accent-fg / --place-accent-fg: the accent lifted until it reads ≥ 7:1
+     on the dark stage (identical to the accent for the default amber);
+   - text ON an accent fill uses --accent-ink / --place-ink: black or white, whichever contrasts more. */
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-soft: color-mix(in oklab, var(--accent) 22%, transparent);
+  --color-place: var(--place-accent, var(--accent));
+  --text-color-accent: var(--accent-fg);
+  --text-color-place: var(--place-accent-fg, var(--accent-fg));
+}
+
+:root {
+  --accent: #e9b35f;
+  --accent-fg: #e9b35f;
+  --accent-ink: #050403;
+  --header-h: 4.25rem;
+  --gutter: clamp(1rem, 4vw, 3.5rem);
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    /* Arabic needs more air than Latin (dots and marks above/below); anything without its own leading gets 1.7 */
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-color: rgb(255 255 255 / 0.18) var(--color-bg);
+  }
+
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+  .lenis.lenis-stopped {
+    overflow: clip;
+  }
+
+  body {
+    min-height: 100svh;
+    overflow-x: clip;
+    background: var(--color-bg);
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  /* readable tint of the accent: the ring stays visible even if the owner picks a dark accent */
+  :focus-visible {
+    outline: 2px solid var(--accent-fg);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  /* Arabic must never be letter-spaced; tracking utilities are only used on Latin/mono runs. */
+  [lang='ar'] .tracking-hud,
+  .font-display {
+    letter-spacing: 0;
+  }
+
+  /* The display face is ONE weight: ZAIN is static, and the Latin/digits Alexandria fills in are pinned to the
+     same 800 so "S5Y", "2019" or "+" never come out heavier than the Arabic next to them (font-black etc.).
+     Word spacing: a tail already fills its word's advance up to the next word, so the space is the only break
+     the eye gets. ZAIN's own space (0.13em) lets a tail run straight into the next word ("صوّرتقصتها"); a wide
+     gap (the old 0.16em extra) cuts every tail loose and the phrase falls apart into floating words. A small
+     nudge keeps the tail visibly *leading into* the next word — one phrase, clear word breaks. */
+  .font-display,
+  .display-xl {
+    font-variation-settings: 'wght' 800;
+    font-synthesis-weight: none;
+    word-spacing: 0.06em;
+    /* a tail never ends a line on its own: whole phrases wrap together, lines stay even */
+    text-wrap: balance;
+  }
+  .font-display .hud,
+  .display-xl .hud,
+  .font-display .font-sans,
+  .display-xl .font-sans {
+    font-variation-settings: normal;
+    word-spacing: normal;
+  }
+
+  /* Small-UI voice: a clean heavy Alexandria (variable, so the weight is real — no ZAIN tails, no fake bold).
+     Weight/spacing are reset here so a UI label nested in display text never inherits ZAIN's settings;
+     `font-bold` / `font-extrabold` utilities still override the default 650. */
+  .font-ui {
+    font-weight: 650;
+    font-variation-settings: normal;
+    word-spacing: normal;
+    letter-spacing: 0;
+  }
+
+  noscript p {
+    padding: 2rem;
+    color: var(--color-text);
+    background: var(--color-bg);
+  }
+}
+
+@layer components {
+  .container-cine {
+    width: 100%;
+    max-width: 88rem;
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+  }
+
+  /* 11px Latin camera readouts — the only text allowed under 14px; keep them on solid/scrimmed ground. */
+  .hud {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* ZAIN sits low in its em (marks reach 0.9em, ي dips to −0.49em), so headlines get Arabic-friendly leading. */
+  .display-xl {
+    font-family: var(--font-display);
+    font-weight: 800;
+    line-height: 1.24;
+    letter-spacing: 0;
+  }
+
+  /* Running Arabic copy: Plex 500, roomy leading, soft (not muted) ink. */
+  .copy {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 1.0625rem;
+    line-height: 1.95;
+    color: var(--color-soft);
+  }
+  @media (min-width: 40rem) {
+    .copy {
+      font-size: 1.125rem;
+    }
+  }
+
+  /* Text that sits on photos / video / the 3D stage: a soft dark halo keeps it legible on any frame. */
+  .text-on-media {
+    text-shadow:
+      0 1px 2px rgb(0 0 0 / 0.55),
+      0 0 22px rgb(0 0 0 / 0.45);
+  }
+
+  /* Small solid plate behind HUD readouts that float over imagery: ≥ 5:1 for --color-muted even on a white frame. */
+  .hud-plate {
+    border-radius: 999px;
+    background: rgb(6 6 7 / 0.82);
+    padding: 0.4em 0.75em;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  /* Viewfinder corner brackets — drawn with four gradients, no extra DOM. */
+  .viewfinder {
+    --vf-size: 18px;
+    --vf-w: 1.5px;
+    --vf-c: rgb(243 240 234 / 0.7);
+    background:
+      linear-gradient(var(--vf-c), var(--vf-c)) top left / var(--vf-size) var(--vf-w),
+      linear-gradient(var(--vf-c), var(--vf-c)) top left / var(--vf-w) var(--vf-size),
+      linear-gradient(var(--vf-c), var(--vf-c)) top right / var(--vf-size) var(--vf-w),
+      linear-gradient(var(--vf-c), var(--vf-c)) top right / var(--vf-w) var(--vf-size),
+      linear-gradient(var(--vf-c), var(--vf-c)) bottom left / var(--vf-size) var(--vf-w),
+      linear-gradient(var(--vf-c), var(--vf-c)) bottom left / var(--vf-w) var(--vf-size),
+      linear-gradient(var(--vf-c), var(--vf-c)) bottom right / var(--vf-size) var(--vf-w),
+      linear-gradient(var(--vf-c), var(--vf-c)) bottom right / var(--vf-w) var(--vf-size);
+    background-repeat: no-repeat;
+  }
+
+  .grain-layer {
+    background-image: url('../assets/grain.png');
+    background-size: 256px 256px;
+    animation: grain-shift 0.9s steps(6) infinite;
+  }
+
+  .shine-border {
+    position: relative;
+    isolation: isolate;
+  }
+  .shine-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(140deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.04) 40%, rgb(255 255 255 / 0.02) 60%, color-mix(in oklab, var(--accent) 45%, transparent));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .marquee-track {
+    animation: marquee var(--marquee-duration, 40s) linear infinite;
+  }
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  .rec-dot {
+    animation: rec-blink 1.2s steps(1) infinite;
+  }
+
+  .skeleton {
+    background: linear-gradient(100deg, rgb(255 255 255 / 0.03) 30%, rgb(255 255 255 / 0.08) 50%, rgb(255 255 255 / 0.03) 70%);
+    background-size: 300% 100%;
+    animation: skeleton 1.6s var(--ease-cine) infinite;
+  }
+}
+
+@keyframes grain-shift {
+  0% { background-position: 0 0; }
+  20% { background-position: -64px 32px; }
+  40% { background-position: 48px -80px; }
+  60% { background-position: -112px -16px; }
+  80% { background-position: 96px 64px; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(50%, 0, 0); }
+}
+
+@keyframes rec-blink {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.15; }
+}
+
+@keyframes skeleton {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@keyframes scroll-cue {
+  0% { transform: scaleY(0); transform-origin: top; }
+  45% { transform: scaleY(1); transform-origin: top; }
+  55% { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+.scroll-cue-line {
+  animation: scroll-cue 2.4s var(--ease-cine) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .grain-layer {
+    animation: none;
+  }
+}
